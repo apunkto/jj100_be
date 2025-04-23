@@ -1,0 +1,7 @@
+name = "jj100-be"
+compatibility_date = "2025-04-22"
+pages_build_output_dir = "./dist"
+
+[vars]
+SUPABASE_URL = "https://vchoisaglmnjyhiieete.supabase.co"
+SUPABASE_ANON_KEY = "your-public-anon-key"
