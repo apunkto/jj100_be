@@ -1,6 +1,6 @@
 name = "jj100-be"
-compatibility_date = "2025-04-22"
-pages_build_output_dir = "./dist"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
 
 [vars]
 SUPABASE_URL = "https://vchoisaglmnjyhiieete.supabase.co"
