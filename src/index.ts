@@ -28,6 +28,7 @@ app.get('/ctp/:hole', async (c) => {
     return c.json(data?.[0] ?? {})
 })
 
+
 app.post('/ctp/:hole', async (c) => {
     const supabase = getSupabaseClient(c.env)
     const hole = Number(c.req.param('hole'))
