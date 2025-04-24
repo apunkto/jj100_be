@@ -1,6 +1,9 @@
-import { Hono } from 'hono'
-import { getSupabaseClient } from './supabase'
-import { cors } from 'hono/cors'
+import {Hono} from 'hono'
+import {getSupabaseClient} from './supabase'
+import {cors} from 'hono/cors'
+import {getCtpLeader, submitCtpResult} from './service/ctpService'
+import {getPlayers} from './service/playerService'
+import type {CtpResultDTO} from './dto/CtpResultDTO'
 
 type Env = {
     SUPABASE_URL: string
@@ -10,35 +13,44 @@ type Env = {
 const app = new Hono<{ Bindings: Env }>()
 
 app.use('*', cors({
-    origin: '*', // or restrict to your frontend URL: 'http://localhost:3000'
+    origin: '*',
     allowMethods: ['GET', 'POST', 'OPTIONS'],
 }))
 
 app.get('/ctp/:hole', async (c) => {
     const supabase = getSupabaseClient(c.env)
     const hole = Number(c.req.param('hole'))
-    console.log( `Fetching CTP for hole ${hole}`)
-    const { data, error } = await supabase
-        .from('ctp_results')
-        .select('*')
-        .eq('hole', hole)
-        .order('distance_cm', { ascending: true })
-        .limit(1)
-    console.log( `Fetched CTP for hole ${hole}`, data, error)
-    return c.json(data?.[0] ?? {})
-})
 
+    const {data, error} = await getCtpLeader(supabase, hole)
+    if (error) return c.json({error}, 500)
+
+    const dto: CtpResultDTO | null = data
+        ? {
+            hole: data.hole,
+            distance_cm: data.distance_cm,
+            player_id: data.player_id,
+            player_name: data.player?.name ?? 'Unknown',
+        }
+        : null
+
+    return c.json(dto ?? {})
+})
 
 app.post('/ctp/:hole', async (c) => {
     const supabase = getSupabaseClient(c.env)
     const hole = Number(c.req.param('hole'))
-    const { player_name, distance_cm } = await c.req.json()
+    const {player_id, distance_cm} = await c.req.json()
 
-    const { data, error } = await supabase
-        .from('ctp_results')
-        .insert([{ hole, player_name, distance_cm }])
+    const {data, error} = await submitCtpResult(supabase, hole, player_id, distance_cm)
 
-    return c.json({ success: !error, data, error })
+    return c.json({success: !error, data, error})
+})
+
+app.get('/players', async (c) => {
+    const supabase = getSupabaseClient(c.env)
+    const {data, error} = await getPlayers(supabase)
+
+    return c.json({success: !error, data, error})
 })
 
 export default app
