@@ -99,3 +99,15 @@ export const submitCtpResult = async (
 
     return { data: insertData, error: insertError }
 }
+
+export const getCtpHoles = async (env: Env) => {
+    const supabase = getSupabaseClient(env);
+
+    const { data, error } = await supabase
+        .from('hole')
+        .select('*')
+        .eq('is_ctp', true)
+        .order('number', { ascending: true });
+
+    return { data, error };
+};

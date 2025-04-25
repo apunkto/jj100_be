@@ -1,7 +1,7 @@
 import {Hono} from 'hono'
 import {getSupabaseClient} from './supabase'
 import {cors} from 'hono/cors'
-import { getHoleByNumber, submitCtpResult} from './service/ctpService'
+import {getCtpHoles, getHoleByNumber, submitCtpResult} from './service/ctpService'
 import {getPlayers} from './service/playerService'
 import type {CtpResultDTO} from './dto/CtpResultDTO'
 import {checkInPlayer} from "./service/checkinService";
@@ -61,5 +61,17 @@ app.post('/lottery/checkin', async (c) => {
         return c.json({ error: err.message || 'Internal Server Error' }, 500)
     }
 })
+
+
+app.get('/holes/ctp', async (c) => {
+    const { data, error } = await getCtpHoles(c.env);
+
+    if (error) {
+        return c.json({ error }, 500);
+    }
+
+    return c.json(data ?? []);
+});
+
 
 export default app
