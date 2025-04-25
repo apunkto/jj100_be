@@ -20,8 +20,26 @@ ALTER TABLE ctp_results
 
 CREATE TABLE lottery_checkin
 (
-    id   bigserial    NOT NULL PRIMARY KEY,
-    player_id    uuid        NOT NULL REFERENCES player (id) ON DELETE CASCADE,
+    id           bigserial   NOT NULL PRIMARY KEY,
+    player_id    bigint      NOT NULL REFERENCES player (id) ON DELETE CASCADE,
     created_date timestamptz NOT NULL DEFAULT now(),
     UNIQUE (player_id) -- prevent duplicate check-ins
 );
+
+CREATE TABLE hole
+(
+    id     bigserial NOT NULL PRIMARY KEY,
+    number int,
+    is_ctp boolean   NOT NULL default false,
+    UNIQUE (number)
+);
+
+alter table ctp_results
+    add column hole_id bigint;
+
+alter table ctp_results
+    add constraint fk_hole
+        foreign key (hole_id) references hole (id);
+
+alter table ctp_results
+    drop column hole;
