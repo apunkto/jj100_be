@@ -8,8 +8,9 @@ export const getCtpLeader = async (supabase: SupabaseClient, hole: number) => {
         .order('distance_cm', { ascending: true })
         .limit(1)
 
-    return { data: data?.[0], error }
+    return { data: data?.[0] ?? null, error }
 }
+
 
 export const submitCtpResult = async (
     supabase: SupabaseClient,

@@ -21,8 +21,8 @@ app.get('/ctp/:hole', async (c) => {
     const supabase = getSupabaseClient(c.env)
     const hole = Number(c.req.param('hole'))
 
-    const {data, error} = await getCtpLeader(supabase, hole)
-    if (error) return c.json({error}, 500)
+    const { data, error } = await getCtpLeader(supabase, hole)
+    if (error) return c.json({ error }, 500)
 
     const dto: CtpResultDTO | null = data
         ? {
@@ -33,8 +33,9 @@ app.get('/ctp/:hole', async (c) => {
         }
         : null
 
-    return c.json(dto ?? {})
+    return c.json(dto) // ✅ returns either the DTO or null
 })
+
 
 app.post('/ctp/:hole', async (c) => {
     const supabase = getSupabaseClient(c.env)
