@@ -1,28 +1,33 @@
-import { SupabaseClient } from '@supabase/supabase-js'
+import {Env} from "../index";
+import {getSupabaseClient} from "../supabase";
 
-export const getCtpLeader = async (supabase: SupabaseClient, hole: number) => {
-    const { data, error } = await supabase
+export const getCtpLeader = async (env: Env, hole: number) => {
+    const supabase = getSupabaseClient(env)
+
+    const {data, error} = await supabase
         .from('ctp_results')
         .select('*, player:player_id(*)')
         .eq('hole', hole)
-        .order('distance_cm', { ascending: true })
+        .order('distance_cm', {ascending: true})
         .limit(1)
 
-    return { data: data?.[0] ?? null, error }
+    return {data: data?.[0] ?? null, error}
 }
 
 
 export const submitCtpResult = async (
-    supabase: SupabaseClient,
+    env: Env,
     hole: number,
     player_id: string,
     distance_cm: number
 ) => {
+    const supabase = getSupabaseClient(env)
+
     // ✅ Get current leader
-    const { data: currentLeader, error: leaderError } = await getCtpLeader(supabase, hole)
+    const {data: currentLeader, error: leaderError} = await getCtpLeader(env, hole)
 
     if (leaderError) {
-        return { data: null, error: leaderError }
+        return {data: null, error: leaderError}
     }
 
     // ✅ Reject if the new throw is not better
@@ -37,9 +42,9 @@ export const submitCtpResult = async (
     }
 
     // ✅ Accept new throw
-    const { data, error } = await supabase
+    const {data, error} = await supabase
         .from('ctp_results')
-        .insert([{ hole, player_id, distance_cm }])
+        .insert([{hole, player_id, distance_cm}])
 
-    return { data, error }
+    return {data, error}
 }

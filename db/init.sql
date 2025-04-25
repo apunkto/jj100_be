@@ -17,3 +17,11 @@ ALTER TABLE "ctp_results"
 
 ALTER TABLE ctp_results
     ADD COLUMN created_date timestamptz NOT NULL DEFAULT now();
+
+CREATE TABLE lottery_checkin
+(
+    id   bigserial    NOT NULL PRIMARY KEY,
+    player_id    uuid        NOT NULL REFERENCES player (id) ON DELETE CASCADE,
+    created_date timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (player_id) -- prevent duplicate check-ins
+);
