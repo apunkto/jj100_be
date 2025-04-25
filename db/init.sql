@@ -14,3 +14,6 @@ create table ctp_results
 
 ALTER TABLE "ctp_results"
     ADD FOREIGN KEY ("player_id") REFERENCES "player" ("id");
+
+ALTER TABLE ctp_results
+    ADD COLUMN created_date timestamptz NOT NULL DEFAULT now();
