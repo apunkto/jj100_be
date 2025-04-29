@@ -65,3 +65,9 @@ alter table lottery_checkin
 
 alter table lottery_checkin
     add column final_game_order int;
+
+alter table hole
+    add column length int;
+
+alter table hole
+    add column coordinates varchar(255);
