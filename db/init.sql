@@ -53,3 +53,6 @@ CREATE TABLE config
 --ctp_enabled
 insert into config (key, value)
 values ('ctp_enabled', 'false');
+
+insert into config (key, value)
+values ('checkin_enabled', 'false');
