@@ -1,5 +1,6 @@
 import { Env } from "../index"
 import { getSupabaseClient } from "../supabase"
+import {getConfigValue} from "./configService";
 
 const fetchHoleWithCtp = async (supabase: any, holeFilter: Record<string, any>) => {
     // Get hole
@@ -55,6 +56,17 @@ export const submitCtpResult = async (
     distance_cm: number
 ) => {
     const supabase = getSupabaseClient(env)
+
+    const { data: ctpEnabled, error: configError } = await getConfigValue(env, "ctp_enabled");
+    if (configError || ctpEnabled !== "true") {
+        return {
+            data: null,
+            error: {
+                message: "CTP submission is currently disabled",
+                code: "ctp_disabled"
+            }
+        }
+    }
 
     const { data, error: holeError } = await getHole(env, holeId)
 

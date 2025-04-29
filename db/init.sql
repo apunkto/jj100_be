@@ -43,3 +43,13 @@ alter table ctp_results
 
 alter table ctp_results
     drop column hole;
+
+CREATE TABLE config
+(
+    key   varchar(255) NOT NULL PRIMARY KEY,
+    value text
+);
+
+--ctp_enabled
+insert into config (key, value)
+values ('ctp_enabled', 'false');

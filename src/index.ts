@@ -5,6 +5,7 @@ import {getCtpHoles, getHoleByNumber, submitCtpResult} from './service/ctpServic
 import {getPlayers} from './service/playerService'
 import type {CtpResultDTO} from './dto/CtpResultDTO'
 import {checkInPlayer} from "./service/checkinService";
+import {getConfigValue} from "./service/configService";
 
 export type Env = {
     SUPABASE_URL: string
@@ -72,6 +73,17 @@ app.get('/holes/ctp', async (c) => {
 
     return c.json(data ?? []);
 });
+
+app.get('/config/:key', async (c) => {
+    const { key } = c.req.param()
+    const result = await getConfigValue(c.env, key)
+
+    if (result.error) {
+        return c.json({ error: result.error }, 404)
+    }
+
+    return c.json({ value: result.data })
+})
 
 
 export default app
