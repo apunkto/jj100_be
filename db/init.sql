@@ -56,3 +56,12 @@ values ('ctp_enabled', 'false');
 
 insert into config (key, value)
 values ('checkin_enabled', 'false');
+
+alter table lottery_checkin
+    add column prize_won boolean default false;
+
+alter table lottery_checkin
+    add column final_game boolean default false;
+
+alter table lottery_checkin
+    add column final_game_order int;
