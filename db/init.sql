@@ -71,3 +71,13 @@ alter table hole
 
 alter table hole
     add column coordinates varchar(255);
+
+CREATE TABLE feedback
+(
+    id       bigserial NOT NULL PRIMARY KEY,
+    score    int,
+    feedback text
+);
+
+alter table feedback
+    add column created_date timestamptz NOT NULL DEFAULT now();

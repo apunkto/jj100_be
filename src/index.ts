@@ -12,6 +12,7 @@ import {
     getCheckedInPlayers
 } from "./service/checkinService";
 import {getConfigValue} from "./service/configService";
+import {FeedbackRow, submitFeedback} from "./service/feedbackService";
 
 export type Env = {
     SUPABASE_URL: string
@@ -110,7 +111,7 @@ app.post('/lottery/draw', async (c) => {
         return c.json({error}, 400)
     }
 
-     return c.json(data)
+    return c.json(data)
 })
 app.post('/lottery/checkin/final/:checkinId', async (c) => {
     const checkinId = Number(c.req.param('checkinId'))
@@ -136,4 +137,24 @@ app.delete('/lottery/checkin/:checkinId', async (c) => {
 
     return c.json({success: true})
 })
+
+app.post('/feedback', async (c) => {
+
+    const body = await c.req.json<{ score: number; feedback: string }>()
+
+    const {score, feedback} = body
+
+    if (isNaN(score) || score < 1 || score > 5 || !feedback.trim()) {
+        return c.json({ error: 'Invalid score or feedback' }, 400)
+    }
+
+    const {data, error} = await submitFeedback(c.env, score, feedback)
+
+    if (error) {
+        return c.json({error}, 500)
+    }
+
+    return c.json({ success: true, data })
+})
+
 export default app

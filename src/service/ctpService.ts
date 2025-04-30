@@ -114,11 +114,43 @@ export const submitCtpResult = async (
 export const getCtpHoles = async (env: Env) => {
     const supabase = getSupabaseClient(env);
 
-    const { data, error } = await supabase
+    const { data: holes, error: holeError } = await supabase
         .from('hole')
         .select('*')
         .eq('is_ctp', true)
         .order('number', { ascending: true });
 
-    return { data, error };
+    if (holeError || !holes) {
+        return { data: [], error: holeError ?? { message: "No CTP holes found", code: "ctp_hole_not_found" } };
+    }
+
+    // Fetch CTP results for all holes
+    const holeIds = holes.map(h => h.id);
+
+    const { data: ctpResults, error: ctpError } = await supabase
+        .from('ctp_results')
+        .select('*, player:player_id(*)')
+        .in('hole_id', holeIds)
+        .order('distance_cm', { ascending: true });
+
+    if (ctpError) {
+        return { data: holes.map(hole => ({ hole, ctp: [] })), error: null };
+    }
+
+    // Group CTP results by hole
+    const grouped: Record<number, typeof ctpResults> = {};
+    for (const result of ctpResults ?? []) {
+        if (!grouped[result.hole_id]) {
+            grouped[result.hole_id] = [];
+        }
+        grouped[result.hole_id].push(result);
+    }
+
+    const enriched = holes.map(hole => ({
+        hole,
+        ctp: grouped[hole.id] ?? []
+    }));
+
+    return { data: enriched, error: null };
 };
+
