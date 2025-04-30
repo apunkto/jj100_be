@@ -1,2 +1,3 @@
 /.dev.vars
 /package-lock.json
+/kml/updates.sql
