@@ -17,9 +17,9 @@ const fetchHoleWithCtp = async (supabase: any, holeFilter: Record<string, any>) 
         }
     }
 
-    // If not a CTP hole, skip CTP leader
+    // If not a CTP hole, skip CTP results
     if (!holeData.is_ctp) {
-        return { data: { hole: holeData, ctp: null }, error: null }
+        return { data: { hole: holeData, ctp: [] }, error: null }
     }
 
     const { data: ctpData, error: ctpError } = await supabase
@@ -27,14 +27,13 @@ const fetchHoleWithCtp = async (supabase: any, holeFilter: Record<string, any>) 
         .select("*, player:player_id(*)")
         .eq("hole_id", holeData.id)
         .order("distance_cm", { ascending: true })
-        .limit(1)
-        .maybeSingle()
 
     return {
-        data: { hole: holeData, ctp: ctpError ? null : ctpData ?? null },
+        data: { hole: holeData, ctp: ctpError ? [] : ctpData ?? [] },
         error: null
     }
 }
+
 
 // ✅ Public method: Get hole by number
 export const getHoleByNumber = async (env: Env, holeNumber: number) => {
