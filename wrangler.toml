@@ -1,6 +1,7 @@
 name = "jj100-be"
 main = "src/index.ts"
 compatibility_date = "2025-04-01"
+usage_model = "unbound"
 
 [vars]
 SUPABASE_URL = "https://vchoisaglmnjyhiieete.supabase.co"
@@ -8,3 +9,4 @@ SUPABASE_ANON_KEY = "your-public-anon-key"
 
 [observability.logs]
 enabled = true
+
