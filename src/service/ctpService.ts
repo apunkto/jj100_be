@@ -154,3 +154,26 @@ export const getCtpHoles = async (env: Env) => {
     return { data: enriched, error: null };
 };
 
+export const getTopRankedHoles = async (env: Env) => {
+    const supabase = getSupabaseClient(env)
+
+    const { data, error } = await supabase
+        .from('hole')
+        .select('*')
+        .order('rank', { ascending: true })
+        .limit(10)
+
+    if (error || !data) {
+        return {
+            data: [],
+            error: error ?? { message: 'Failed to fetch ranked holes', code: 'rank_fetch_error' }
+        }
+    }
+
+    return {
+        data: data.map(hole => ({ hole, ctp: [] })), // include empty ctp for compatibility
+        error: null
+    }
+}
+
+

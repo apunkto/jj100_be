@@ -1,9 +1,7 @@
 import {Hono} from 'hono'
-import {getSupabaseClient} from './supabase'
 import {cors} from 'hono/cors'
-import {getCtpHoles, getHoleByNumber, submitCtpResult} from './service/ctpService'
+import {getCtpHoles, getHoleByNumber, getTopRankedHoles, submitCtpResult} from './service/ctpService'
 import {getPlayers} from './service/playerService'
-import type {CtpResultDTO} from './dto/CtpResultDTO'
 import {
     checkInPlayer,
     confirmFinalGamePlayer,
@@ -12,8 +10,8 @@ import {
     getCheckedInPlayers
 } from "./service/checkinService";
 import {getConfigValue} from "./service/configService";
-import {FeedbackRow, submitFeedback} from "./service/feedbackService";
-import type {ScheduledEvent, ExecutionContext} from '@cloudflare/workers-types';
+import {submitFeedback} from "./service/feedbackService";
+import type {ExecutionContext, ScheduledEvent} from '@cloudflare/workers-types';
 import {updateHoleStatsFromMetrix} from "./service/metrixService";
 
 export type Env = {
@@ -198,3 +196,13 @@ export default {
         console.log(`Scheduled task completed in ${duration}ms`);
     }
 }
+
+app.get('/holes/top-ranked', async (c) => {
+    const { data, error } = await getTopRankedHoles(c.env)
+
+    if (error) {
+        return c.json({ error }, 500)
+    }
+
+    return c.json(data)
+})

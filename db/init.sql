@@ -105,3 +105,15 @@ alter table hole
 alter table hole
     add column
         others int default 0;
+
+alter table hole
+    add column
+        average_diff numeric default 0;
+
+alter table hole
+    add column
+        rank int default 0;
+
+alter table hole
+    add column
+        ob_percent numeric default 0;
