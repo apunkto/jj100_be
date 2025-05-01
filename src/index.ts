@@ -159,6 +159,27 @@ app.post('/feedback', async (c) => {
     return c.json({success: true, data})
 })
 
+app.get('/debug/run-metrix', async (c) => {
+    const start = Date.now();
+
+    try {
+        const result = await updateHoleStatsFromMetrix(c.env);
+        const duration = Date.now() - start;
+
+        console.log(`[Metrix] Stats updated in ${duration}ms:`, JSON.stringify(result));
+
+        return c.json({ ...result, durationMs: duration });
+    } catch (error) {
+        const duration = Date.now() - start;
+        const message = error instanceof Error ? error.message : String(error);
+
+        console.error(`[Metrix] Update failed after ${duration}ms`, message);
+
+        return c.json({ success: false, error: message, durationMs: duration }, 500);
+    }
+});
+
+
 export default {
     fetch: app.fetch,
 
