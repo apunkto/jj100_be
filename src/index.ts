@@ -13,6 +13,8 @@ import {
 } from "./service/checkinService";
 import {getConfigValue} from "./service/configService";
 import {FeedbackRow, submitFeedback} from "./service/feedbackService";
+import type {ScheduledEvent, ExecutionContext} from '@cloudflare/workers-types';
+import {updateHoleStatsFromMetrix} from "./service/metrixService";
 
 export type Env = {
     SUPABASE_URL: string
@@ -145,7 +147,7 @@ app.post('/feedback', async (c) => {
     const {score, feedback} = body
 
     if (isNaN(score) || score < 1 || score > 5 || !feedback.trim()) {
-        return c.json({ error: 'Invalid score or feedback' }, 400)
+        return c.json({error: 'Invalid score or feedback'}, 400)
     }
 
     const {data, error} = await submitFeedback(c.env, score, feedback)
@@ -154,7 +156,24 @@ app.post('/feedback', async (c) => {
         return c.json({error}, 500)
     }
 
-    return c.json({ success: true, data })
+    return c.json({success: true, data})
 })
 
-export default app
+export default {
+    fetch: app.fetch,
+
+    scheduled: async (event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
+        const start = Date.now();
+        console.log("Scheduled task started at", new Date(event.scheduledTime).toISOString());
+
+        try {
+            const result = await updateHoleStatsFromMetrix(env);
+            console.log("Metrix stats update result:", result);
+        } catch (err) {
+            console.error("Metrix update failed:", err);
+        }
+
+        const duration = Date.now() - start;
+        console.log(`Scheduled task completed in ${duration}ms`);
+    }
+}

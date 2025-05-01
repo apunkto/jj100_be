@@ -81,3 +81,27 @@ CREATE TABLE feedback
 
 alter table feedback
     add column created_date timestamptz NOT NULL DEFAULT now();
+
+alter table hole
+    add column
+        eagles int default 0;
+
+alter table hole
+    add column
+        birdies int default 0;
+
+alter table hole
+    add column
+        pars int default 0;
+
+alter table hole
+    add column
+        bogeys int default 0;
+
+alter table hole
+    add column
+        double_bogeys int default 0;
+
+alter table hole
+    add column
+        others int default 0;

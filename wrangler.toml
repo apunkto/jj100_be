@@ -10,3 +10,5 @@ SUPABASE_ANON_KEY = "your-public-anon-key"
 [observability.logs]
 enabled = true
 
+[triggers]
+crons = ["*/5 * * * *"]
