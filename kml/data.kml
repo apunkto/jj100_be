@@ -3,6 +3,40 @@
   <Document>
     <name>JJ100 2025</name>
     <description/>
+    <Style id="icon-1577-9C27B0-normal">
+      <IconStyle>
+        <color>ffb0279c</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+      </IconStyle>
+      <LabelStyle>
+        <scale>0</scale>
+      </LabelStyle>
+    </Style>
+    <Style id="icon-1577-9C27B0-highlight">
+      <IconStyle>
+        <color>ffb0279c</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+      </IconStyle>
+      <LabelStyle>
+        <scale>1</scale>
+      </LabelStyle>
+    </Style>
+    <StyleMap id="icon-1577-9C27B0">
+      <Pair>
+        <key>normal</key>
+        <styleUrl>#icon-1577-9C27B0-normal</styleUrl>
+      </Pair>
+      <Pair>
+        <key>highlight</key>
+        <styleUrl>#icon-1577-9C27B0-highlight</styleUrl>
+      </Pair>
+    </StyleMap>
     <Style id="icon-1585-FFD600-labelson">
       <IconStyle>
         <color>ff00d6ff</color>
@@ -12,6 +46,108 @@
         </Icon>
       </IconStyle>
     </Style>
+    <Style id="icon-1603-9C27B0-normal">
+      <IconStyle>
+        <color>ffb0279c</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+      </IconStyle>
+      <LabelStyle>
+        <scale>0</scale>
+      </LabelStyle>
+    </Style>
+    <Style id="icon-1603-9C27B0-highlight">
+      <IconStyle>
+        <color>ffb0279c</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+      </IconStyle>
+      <LabelStyle>
+        <scale>1</scale>
+      </LabelStyle>
+    </Style>
+    <StyleMap id="icon-1603-9C27B0">
+      <Pair>
+        <key>normal</key>
+        <styleUrl>#icon-1603-9C27B0-normal</styleUrl>
+      </Pair>
+      <Pair>
+        <key>highlight</key>
+        <styleUrl>#icon-1603-9C27B0-highlight</styleUrl>
+      </Pair>
+    </StyleMap>
+    <Style id="icon-1644-9C27B0-normal">
+      <IconStyle>
+        <color>ffb0279c</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+      </IconStyle>
+      <LabelStyle>
+        <scale>0</scale>
+      </LabelStyle>
+    </Style>
+    <Style id="icon-1644-9C27B0-highlight">
+      <IconStyle>
+        <color>ffb0279c</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+      </IconStyle>
+      <LabelStyle>
+        <scale>1</scale>
+      </LabelStyle>
+    </Style>
+    <StyleMap id="icon-1644-9C27B0">
+      <Pair>
+        <key>normal</key>
+        <styleUrl>#icon-1644-9C27B0-normal</styleUrl>
+      </Pair>
+      <Pair>
+        <key>highlight</key>
+        <styleUrl>#icon-1644-9C27B0-highlight</styleUrl>
+      </Pair>
+    </StyleMap>
+    <Style id="icon-1733-9C27B0-normal">
+      <IconStyle>
+        <color>ffb0279c</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+      </IconStyle>
+      <LabelStyle>
+        <scale>0</scale>
+      </LabelStyle>
+    </Style>
+    <Style id="icon-1733-9C27B0-highlight">
+      <IconStyle>
+        <color>ffb0279c</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+      </IconStyle>
+      <LabelStyle>
+        <scale>1</scale>
+      </LabelStyle>
+    </Style>
+    <StyleMap id="icon-1733-9C27B0">
+      <Pair>
+        <key>normal</key>
+        <styleUrl>#icon-1733-9C27B0-normal</styleUrl>
+      </Pair>
+      <Pair>
+        <key>highlight</key>
+        <styleUrl>#icon-1733-9C27B0-highlight</styleUrl>
+      </Pair>
+    </StyleMap>
     <Style id="icon-1799-0288D1-labelson">
       <IconStyle>
         <color>ffd18802</color>
@@ -50,14 +186,14 @@
       </Pair>
     </StyleMap>
     <Folder>
-      <name>Pealkirjata kiht</name>
+      <name><![CDATA[Korvid & Tiialad]]></name>
       <Placemark>
         <name>1</name>
         <description>tii</description>
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.879646,59.0389828,0
+            25.879509,59.0387643,0
           </coordinates>
         </Point>
       </Placemark>
@@ -67,7 +203,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.878297,59.0391222,0
+            25.8784423,59.0392202,0
           </coordinates>
         </Point>
       </Placemark>
@@ -77,7 +213,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8781055,59.0387896,0
+            25.878176,59.0387574,0
           </coordinates>
         </Point>
       </Placemark>
@@ -87,7 +223,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8791305,59.0384783,0
+            25.8791221,59.0383837,0
           </coordinates>
         </Point>
       </Placemark>
@@ -97,7 +233,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8790728,59.0380321,0
+            25.8791021,59.038145,0
           </coordinates>
         </Point>
       </Placemark>
@@ -127,7 +263,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8772811,59.0380458,0
+            25.8768818,59.038383,0
           </coordinates>
         </Point>
       </Placemark>
@@ -137,7 +273,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8766678,59.0384049,0
+            25.8760793,59.0386154,0
           </coordinates>
         </Point>
       </Placemark>
@@ -277,7 +413,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8768995,59.0451028,0
+            25.8768816,59.0450985,0
           </coordinates>
         </Point>
       </Placemark>
@@ -397,7 +533,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8827578,59.0459097,0
+            25.8827391,59.0457993,0
           </coordinates>
         </Point>
       </Placemark>
@@ -407,7 +543,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8833317,59.0454208,0
+            25.8833773,59.045328,0
           </coordinates>
         </Point>
       </Placemark>
@@ -437,7 +573,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.882375,59.0463148,0
+            25.8821635,59.0464344,0
           </coordinates>
         </Point>
       </Placemark>
@@ -447,7 +583,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8822881,59.0472245,0
+            25.8820387,59.0471633,0
           </coordinates>
         </Point>
       </Placemark>
@@ -527,7 +663,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8898077,59.0481646,0
+            25.8895686,59.0482608,0
           </coordinates>
         </Point>
       </Placemark>
@@ -537,7 +673,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8896889,59.0475912,0
+            25.8895404,59.0475222,0
           </coordinates>
         </Point>
       </Placemark>
@@ -577,7 +713,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8973126,59.0434601,0
+            25.8973267,59.0433752,0
           </coordinates>
         </Point>
       </Placemark>
@@ -587,7 +723,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8968828,59.0425803,0
+            25.8968155,59.0424865,0
           </coordinates>
         </Point>
       </Placemark>
@@ -627,7 +763,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8966139,59.0436456,0
+            25.896599,59.0435543,0
           </coordinates>
         </Point>
       </Placemark>
@@ -637,7 +773,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8952,59.0442042,0
+            25.8954439,59.0442263,0
           </coordinates>
         </Point>
       </Placemark>
@@ -647,7 +783,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8950659,59.0439065,0
+            25.894551,59.0442031,0
           </coordinates>
         </Point>
       </Placemark>
@@ -707,7 +843,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8919837,59.0442862,0
+            25.8921398,59.0442263,0
           </coordinates>
         </Point>
       </Placemark>
@@ -717,7 +853,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8925192,59.0434215,0
+            25.8925178,59.0433208,0
           </coordinates>
         </Point>
       </Placemark>
@@ -807,7 +943,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8714943,59.0390023,0
+            25.8714496,59.0389244,0
           </coordinates>
         </Point>
       </Placemark>
@@ -817,7 +953,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8715243,59.0387443,0
+            25.8715239,59.0387404,0
           </coordinates>
         </Point>
       </Placemark>
@@ -847,7 +983,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8699123,59.0399517,0
+            25.8699441,59.0400134,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1077,7 +1213,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8863143,59.0455814,0
+            25.8863403,59.0456909,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1087,7 +1223,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8862445,59.0461746,0
+            25.8863456,59.0462537,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1157,7 +1293,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8877421,59.046583,0
+            25.8876298,59.0465801,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1247,7 +1383,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8983638,59.0450911,0
+            25.8984353,59.0450059,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1267,7 +1403,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8982744,59.0445728,0
+            25.8982747,59.0446787,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1317,7 +1453,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8888724,59.0435629,0
+            25.8888769,59.0435205,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1497,7 +1633,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.888415,59.0348904,0
+            25.8887279,59.0350461,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1507,7 +1643,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8913278,59.0345551,0
+            25.8914803,59.0348044,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1537,7 +1673,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8948381,59.0342701,0
+            25.8949786,59.0342459,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1577,7 +1713,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8949579,59.0325663,0
+            25.8948723,59.0325222,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1597,7 +1733,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8933445,59.0313805,0
+            25.8935843,59.0314186,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1607,7 +1743,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8943959,59.0312493,0
+            25.8952972,59.0312235,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1617,7 +1753,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8940875,59.0310409,0
+            25.8948788,59.0310271,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1697,7 +1833,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8984939,59.0315031,0
+            25.898303,59.0313258,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1707,7 +1843,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8984456,59.032331,0
+            25.89825,59.032375,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1717,7 +1853,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.897646,59.0332922,0
+            25.8976932,59.033114,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1857,7 +1993,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8991009,59.0370578,0
+            25.8990929,59.0369194,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1897,7 +2033,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.894387,59.036695,0
+            25.8950654,59.0364812,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1907,7 +2043,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8944192,59.0359456,0
+            25.893857,59.0358518,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1927,7 +2063,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8916226,59.0355673,0
+            25.8919917,59.035475,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1937,7 +2073,7 @@
         <styleUrl>#icon-1585-FFD600-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8919013,59.0361768,0
+            25.892169,59.0359752,0
           </coordinates>
         </Point>
       </Placemark>
@@ -1947,7 +2083,7 @@
         <styleUrl>#icon-1799-0288D1-labelson</styleUrl>
         <Point>
           <coordinates>
-            25.8905173,59.0359395,0
+            25.8907125,59.0357999,0
           </coordinates>
         </Point>
       </Placemark>
@@ -2020,8 +2156,8 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.879646,59.0389828,0
-            25.878297,59.0391222,0
+            25.8795002,59.0387726,0
+            25.8784423,59.0392202,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -2031,8 +2167,8 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8781055,59.0387896,0
-            25.8791305,59.0384783,0
+            25.878176,59.0387574,0
+            25.8791151,59.0383906,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -2042,7 +2178,7 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8790728,59.0380321,0
+            25.8791021,59.038145,0
             25.8777789,59.0383671,0
           </coordinates>
         </LineString>
@@ -2064,8 +2200,8 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8772811,59.0380458,0
-            25.8766678,59.0384049,0
+            25.8768818,59.038383,0
+            25.8760884,59.0386241,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -2110,7 +2246,7 @@
           <coordinates>
             25.8725457,59.0391155,0
             25.8718537,59.0390963,0
-            25.8714943,59.0390023,0
+            25.8714496,59.0389244,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -2132,7 +2268,7 @@
           <tessellate>1</tessellate>
           <coordinates>
             25.8693705,59.0393735,0
-            25.8699123,59.0399517,0
+            25.8699333,59.0399964,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -2343,8 +2479,8 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8827578,59.0459097,0
-            25.8833317,59.0454208,0
+            25.8827391,59.0457993,0
+            25.8833773,59.045328,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -2365,8 +2501,8 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.882375,59.0463148,0
-            25.8822881,59.0472245,0
+            25.8821635,59.0464344,0
+            25.8820387,59.0471633,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -2442,8 +2578,8 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8863143,59.0455814,0
-            25.8862445,59.0461746,0
+            25.8863566,59.0456943,0
+            25.8863456,59.0462537,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -2464,7 +2600,7 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8877421,59.046583,0
+            25.8876478,59.0465732,0
             25.8874086,59.0467836,0
             25.8875436,59.0468907,0
           </coordinates>
@@ -2477,7 +2613,7 @@
           <tessellate>1</tessellate>
           <coordinates>
             25.8873085,59.0470904,0
-            25.8898077,59.0481646,0
+            25.8895695,59.0482725,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -2487,7 +2623,7 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8896865,59.0475915,0
+            25.8895404,59.0475222,0
             25.8891586,59.046902,0
           </coordinates>
         </LineString>
@@ -2542,7 +2678,7 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8983638,59.0450911,0
+            25.8984353,59.0450059,0
             25.8986374,59.0444924,0
           </coordinates>
         </LineString>
@@ -2553,7 +2689,7 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8982744,59.0445728,0
+            25.8982747,59.0446787,0
             25.8964934,59.0449067,0
           </coordinates>
         </LineString>
@@ -2575,8 +2711,8 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8973126,59.0434601,0
-            25.8968828,59.0425803,0
+            25.8973267,59.0433752,0
+            25.8968327,59.0424945,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -2597,8 +2733,8 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8966139,59.0436456,0
-            25.8952,59.0442042,0
+            25.896599,59.0435543,0
+            25.8954439,59.0442263,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -2608,7 +2744,7 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8950659,59.0439065,0
+            25.8945538,59.0441941,0
             25.8942224,59.0446032,0
           </coordinates>
         </LineString>
@@ -2643,8 +2779,8 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8919837,59.0442862,0
-            25.8925192,59.0434215,0
+            25.8921398,59.0442263,0
+            25.8925178,59.0433208,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -2666,7 +2802,7 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8888724,59.0435629,0
+            25.8888646,59.0435291,0
             25.8881375,59.0440982,0
           </coordinates>
         </LineString>
@@ -2799,8 +2935,8 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.888415,59.0348904,0
-            25.8913278,59.0345551,0
+            25.8887279,59.0350461,0
+            25.8914803,59.0348044,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -2821,7 +2957,7 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8948381,59.0342701,0
+            25.8949786,59.0342459,0
             25.8963428,59.034092,0
           </coordinates>
         </LineString>
@@ -2843,7 +2979,7 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8949579,59.0325663,0
+            25.8948723,59.0325222,0
             25.8936952,59.0319632,0
           </coordinates>
         </LineString>
@@ -2854,9 +2990,9 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8933445,59.0313805,0
-            25.8941453,59.0311991,0
-            25.8943959,59.0312493,0
+            25.8936023,59.0314117,0
+            25.8946867,59.031132,0
+            25.8952776,59.0312178,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -2866,7 +3002,7 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8940875,59.0310409,0
+            25.8948788,59.0310271,0
             25.8932533,59.0310492,0
           </coordinates>
         </LineString>
@@ -2913,8 +3049,8 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8984939,59.0315031,0
-            25.8984456,59.032331,0
+            25.898303,59.0313258,0
+            25.8982531,59.0323835,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -2924,7 +3060,7 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.897646,59.0332922,0
+            25.8976932,59.033114,0
             25.8980222,59.033928,0
           </coordinates>
         </LineString>
@@ -3026,8 +3162,8 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.894387,59.036695,0
-            25.8944192,59.0359456,0
+            25.8950654,59.0364812,0
+            25.893857,59.0358518,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -3038,7 +3174,7 @@
           <tessellate>1</tessellate>
           <coordinates>
             25.8938076,59.0352073,0
-            25.8916226,59.0355673,0
+            25.8920321,59.0354733,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -3048,8 +3184,8 @@
         <LineString>
           <tessellate>1</tessellate>
           <coordinates>
-            25.8919013,59.0361768,0
-            25.8905173,59.0359395,0
+            25.892169,59.0359752,0
+            25.8907304,59.0357941,0
           </coordinates>
         </LineString>
       </Placemark>
@@ -3085,6 +3221,269 @@
             25.8834242,59.0372871,0
           </coordinates>
         </LineString>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>Söök, Parkla, Wc</name>
+      <Placemark>
+        <name>Söögipunkt Järva-Jaani Tare</name>
+        <description>söök</description>
+        <styleUrl>#icon-1577-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8804226,59.0385918,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name><![CDATA[Söögipunkt "Kutsekas"]]></name>
+        <description>söök</description>
+        <styleUrl>#icon-1577-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8877917,59.046358,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name><![CDATA[Söögipunkt "Võllaste"]]></name>
+        <description>söök</description>
+        <styleUrl>#icon-1577-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8944693,59.0339077,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Parkla</name>
+        <description>parkla</description>
+        <styleUrl>#icon-1644-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8942118,59.0338276,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Parkla</name>
+        <description>parkla</description>
+        <styleUrl>#icon-1644-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8821309,59.0386768,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WC</name>
+        <description>wc</description>
+        <styleUrl>#icon-1733-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8951983,59.0338641,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Parkla</name>
+        <description>parkla</description>
+        <styleUrl>#icon-1644-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8778376,59.0424608,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Parkla</name>
+        <description>parkla</description>
+        <styleUrl>#icon-1644-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8791149,59.0376781,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Parkla</name>
+        <description>parkla</description>
+        <styleUrl>#icon-1644-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8842058,59.038473,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Parkla</name>
+        <description>parkla</description>
+        <styleUrl>#icon-1644-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8749267,59.0387407,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Parkla</name>
+        <description>parkla</description>
+        <styleUrl>#icon-1644-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8848859,59.0375936,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Parkla</name>
+        <description>parkla</description>
+        <styleUrl>#icon-1644-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8972072,59.0455095,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WC</name>
+        <description>wc</description>
+        <styleUrl>#icon-1733-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8856101,59.039332,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WC</name>
+        <description>wc</description>
+        <styleUrl>#icon-1733-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8816002,59.0387138,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WC</name>
+        <description>wc</description>
+        <styleUrl>#icon-1733-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8838784,59.0382008,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WC</name>
+        <description>wc</description>
+        <styleUrl>#icon-1733-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8871939,59.0426838,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Parkla</name>
+        <description>parkla</description>
+        <styleUrl>#icon-1644-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8778777,59.0447202,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WC</name>
+        <description>wc</description>
+        <styleUrl>#icon-1733-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8777194,59.0447244,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WC</name>
+        <description>wc</description>
+        <styleUrl>#icon-1733-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8777608,59.042342,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Parkla</name>
+        <description>parkla</description>
+        <styleUrl>#icon-1644-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8949375,59.0297669,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Parkla</name>
+        <description>parkla</description>
+        <styleUrl>#icon-1644-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8838466,59.0473898,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Parkla</name>
+        <description>parkla</description>
+        <styleUrl>#icon-1644-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8873335,59.0463289,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WC</name>
+        <description>wc</description>
+        <styleUrl>#icon-1733-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8879075,59.0467538,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WC</name>
+        <description>wc</description>
+        <styleUrl>#icon-1733-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8751163,59.0387091,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>Võistluste staap</name>
+        <description>staap</description>
+        <styleUrl>#icon-1603-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.8826962,59.0386222,0
+          </coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <name>WC</name>
+        <description>wc</description>
+        <styleUrl>#icon-1733-9C27B0</styleUrl>
+        <Point>
+          <coordinates>
+            25.884058,59.0473726,0
+          </coordinates>
+        </Point>
       </Placemark>
     </Folder>
   </Document>

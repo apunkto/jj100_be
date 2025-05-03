@@ -72,6 +72,8 @@ export const drawRandomWinner = async (env: Env, finalGame = false): Promise<{ d
 
     if (!finalGame) {
         query = query.eq('prize_won', false)
+    } else {
+        query = query.eq('final_game', false)
     }
 
     const { data: eligiblePlayers, error } = await query
