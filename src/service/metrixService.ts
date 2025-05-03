@@ -23,7 +23,7 @@ interface MetrixAPIResponse {
 export const updateHoleStatsFromMetrix = async (env: Env) => {
     const totalStart = Date.now();
     const supabase = getSupabaseClient(env);
-    const url = 'https://discgolfmetrix.com/api.php?content=result&id=3204901';
+    const url = 'https://discgolfmetrix.com/api.php?content=result&id=3204902';
 
     const fetchStart = Date.now();
     const res = await fetch(url);
