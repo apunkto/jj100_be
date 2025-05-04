@@ -1,6 +1,6 @@
 import {Hono} from 'hono'
 import {cors} from 'hono/cors'
-import {getCtpHoles, getHoleByNumber, getTopRankedHoles, submitCtpResult} from './service/ctpService'
+import {getCtpHoles, getHoleByNumber, getHoles, getTopRankedHoles, submitCtpResult} from './service/ctpService'
 import {getPlayers} from './service/playerService'
 import {
     checkInPlayer,
@@ -199,6 +199,16 @@ export default {
 
 app.get('/holes/top-ranked', async (c) => {
     const { data, error } = await getTopRankedHoles(c.env)
+
+    if (error) {
+        return c.json({ error }, 500)
+    }
+
+    return c.json(data)
+})
+
+app.get('/holes', async (c) => {
+    const { data, error } = await getHoles(c.env)
 
     if (error) {
         return c.json({ error }, 500)
