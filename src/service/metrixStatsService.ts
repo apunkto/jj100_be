@@ -1,6 +1,6 @@
 import {getSupabaseClient} from '../supabase'
 import type {Env} from '../index'
-import {CompetitionElement} from "./metrixService";
+import {CompetitionElement, PlayerResult} from "./metrixService";
 
 
 export type PlayerStatsResponse = {
@@ -40,7 +40,7 @@ const getCachedCompetition = async (env: Env, competitionId: number) => {
     if (!data) return {data: null, error: {message: 'No cached metrix_result for competition'}};
 
     // data.data is jsonb -> already an object
-    return {data: {competition: data.data as CompetitionElement, cachedAt: data.created_date as string}, error: null};
+    return {data: {results: data.data as PlayerResult[], cachedAt: data.created_date as string}, error: null};
 };
 
 export const getMetrixPlayers = async (env: Env, competitionId?: number) => {
@@ -48,7 +48,7 @@ export const getMetrixPlayers = async (env: Env, competitionId?: number) => {
     const cached = await getCachedCompetition(env, id);
     if (cached.error) return {data: null, error: cached.error};
 
-    const players = cached.data!.competition.Results ?? [];
+    const players = cached.data.results ?? [];
     // keep it small for FE list
     const list = players.map(p => ({
         userId: p.UserID,
@@ -67,7 +67,7 @@ export const getMetrixPlayerStats = async (env: Env, userId: string, competition
     const cached = await getCachedCompetition(env, id);
     if (cached.error) return {data: null, error: cached.error};
 
-    const results = cached.data!.competition.Results ?? [];
+    const results = cached.data!.results ?? [];
     console.log('results', results);
     const selected = results.find(p => p.UserID === userId);
 

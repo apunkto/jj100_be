@@ -61,7 +61,7 @@ export const updateHoleStatsFromMetrix = async (env: Env) => {
             .upsert(
                 {
                     competition_id: Number(env.CURRENT_COMPETITION_ID),
-                    data: comp,
+                    data: comp.Results,
                     created_date: new Date().toISOString(),
                 },
                 {onConflict: 'competition_id'}
