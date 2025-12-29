@@ -13,6 +13,7 @@ import {getConfigValue} from "./service/configService";
 import {submitFeedback} from "./service/feedbackService";
 import type {ExecutionContext, ScheduledEvent} from '@cloudflare/workers-types';
 import {updateHoleStatsFromMetrix} from "./service/metrixService";
+import {getMetrixPlayers, getMetrixPlayerStats} from "./service/metrixStatsService";
 
 export type Env = {
     SUPABASE_URL: string
@@ -167,14 +168,14 @@ app.get('/debug/run-metrix', async (c) => {
 
         console.log(`[Metrix] Stats updated in ${duration}ms:`, JSON.stringify(result));
 
-        return c.json({ ...result, durationMs: duration });
+        return c.json({...result, durationMs: duration});
     } catch (error) {
         const duration = Date.now() - start;
         const message = error instanceof Error ? error.message : String(error);
 
         console.error(`[Metrix] Update failed after ${duration}ms`, message);
 
-        return c.json({ success: false, error: message, durationMs: duration }, 500);
+        return c.json({success: false, error: message, durationMs: duration}, 500);
     }
 });
 
@@ -199,21 +200,45 @@ export default {
 }
 
 app.get('/holes/top-ranked', async (c) => {
-    const { data, error } = await getTopRankedHoles(c.env)
+    const {data, error} = await getTopRankedHoles(c.env)
 
     if (error) {
-        return c.json({ error }, 500)
+        return c.json({error}, 500)
     }
 
     return c.json(data)
 })
 
 app.get('/holes', async (c) => {
-    const { data, error } = await getHoles(c.env)
+    const {data, error} = await getHoles(c.env)
 
     if (error) {
-        return c.json({ error }, 500)
+        return c.json({error}, 500)
     }
 
     return c.json(data)
 })
+
+app.get('/metrix/players', async (c) => {
+    const competitionIdParam = c.req.query('competition_id');
+    const competitionId = competitionIdParam ? Number(competitionIdParam) : undefined;
+
+    const {data, error} = await getMetrixPlayers(c.env, competitionId);
+    if (error) return c.json({error}, 500);
+
+    return c.json({success: true, data});
+});
+
+// stats for selected player
+app.get('/metrix/player/:userId/stats', async (c) => {
+    const userId = c.req.param('userId');
+    if (!userId) return c.json({error: 'Invalid userId'}, 400);
+
+    const competitionIdParam = c.req.query('competition_id');
+    const competitionId = competitionIdParam ? Number(competitionIdParam) : undefined;
+
+    const {data, error} = await getMetrixPlayerStats(c.env, userId, competitionId);
+    if (error) return c.json({error}, 404);
+
+    return c.json({success: true, data});
+});

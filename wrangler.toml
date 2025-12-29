@@ -10,3 +10,6 @@ CURRENT_COMPETITION_ID = "3204902"
 
 [observability.logs]
 enabled = true
+
+[triggers]
+crons = ["0 * * * *"]

@@ -2,18 +2,30 @@ import {getSupabaseClient} from '../supabase';
 import type {Env} from '../index';
 
 // Types for Metrix API Response
-interface HoleResult {
+export interface HoleResult {
     Result: string;
     Diff: number;
 }
 
-interface PlayerResult {
+export  interface PlayerResult {
+    UserID: string;
     Name: string;
-    PlayerResults: HoleResult[];
+    OrderNumber: number;
+    Diff: number;
+    ClassName: string;
+    Sum: number;
+    Dnf?: boolean | null;
+    PlayerResults?: HoleResult[];
 }
 
-interface CompetitionElement {
+export interface CompetitionElement {
     Results: PlayerResult[];
+}
+
+export  interface MetrixCachedRow {
+    competition_id: number;
+    data: CompetitionElement;
+    created_date: string;
 }
 
 interface MetrixAPIResponse {
