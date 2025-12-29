@@ -17,6 +17,7 @@ import {updateHoleStatsFromMetrix} from "./service/metrixService";
 export type Env = {
     SUPABASE_URL: string
     SUPABASE_SERVICE_ROLE_KEY: string
+    CURRENT_COMPETITION_ID: number
 }
 
 const app = new Hono<{ Bindings: Env }>()

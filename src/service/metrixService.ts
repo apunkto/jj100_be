@@ -1,5 +1,5 @@
-import { getSupabaseClient } from '../supabase';
-import type { Env } from '../index';
+import {getSupabaseClient} from '../supabase';
+import type {Env} from '../index';
 
 // Types for Metrix API Response
 interface HoleResult {
@@ -23,7 +23,7 @@ interface MetrixAPIResponse {
 export const updateHoleStatsFromMetrix = async (env: Env) => {
     const totalStart = Date.now();
     const supabase = getSupabaseClient(env);
-    const url = 'https://discgolfmetrix.com/api.php?content=result&id=3204902';
+    const url = 'https://discgolfmetrix.com/api.php?content=result&id=' + env.CURRENT_COMPETITION_ID;
 
     const fetchStart = Date.now();
     const res = await fetch(url);
@@ -44,6 +44,28 @@ export const updateHoleStatsFromMetrix = async (env: Env) => {
     const comp = data?.Competition;
 
     if (comp) {
+        const {error: cacheErr} = await supabase
+            .from('metrix_result')
+            .upsert(
+                {
+                    competition_id: Number(env.CURRENT_COMPETITION_ID),
+                    data: comp,
+                    created_date: new Date().toISOString(),
+                },
+                {onConflict: 'competition_id'}
+            );
+
+        if (cacheErr) {
+            console.error('[Metrix] Cache upsert failed (raw):', cacheErr);
+            console.error('[Metrix] Cache upsert failed (string):', JSON.stringify(cacheErr, null, 2));
+            console.error('[Metrix] Cache upsert failed (props):', {
+                message: (cacheErr as any).message,
+                details: (cacheErr as any).details,
+                hint: (cacheErr as any).hint,
+                code: (cacheErr as any).code,
+            });
+        }
+
         const players = comp.Results || [];
         for (const player of players) {
             const holes = player?.PlayerResults || [];
@@ -80,9 +102,9 @@ export const updateHoleStatsFromMetrix = async (env: Env) => {
         ...stats
     }));
 
-    const { error } = await supabase
+    const {error} = await supabase
         .from('hole')
-        .upsert(updates, { onConflict: 'number' });
+        .upsert(updates, {onConflict: 'number'});
 
     const updateDuration = Date.now() - updateStart;
     const totalDuration = Date.now() - totalStart;
@@ -90,5 +112,5 @@ export const updateHoleStatsFromMetrix = async (env: Env) => {
     console.log(`[Metrix] Update duration: ${updateDuration}ms`);
     console.log(`[Metrix] Total duration: ${totalDuration}ms`);
 
-    return { success: !error, updated: updates.length, error };
+    return {success: !error, updated: updates.length, error};
 };

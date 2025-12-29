@@ -117,3 +117,18 @@ alter table hole
 alter table hole
     add column
         ob_percent numeric default 0;
+
+create table metrix_result
+(
+    id             bigserial   NOT NULL PRIMARY KEY,
+    competition_id bigint      NOT NULL,
+    data           jsonb        not null,
+    created_date   timestamptz NOT NULL DEFAULT now()
+);
+
+
+create index if not exists metrix_result_competition_id_idx
+    on metrix_result (competition_id);
+
+alter table metrix_result
+    add constraint metrix_result_competition_id_unique unique (competition_id);
