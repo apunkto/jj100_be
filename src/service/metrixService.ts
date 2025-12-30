@@ -5,9 +5,10 @@ import type {Env} from '../index';
 export interface HoleResult {
     Result: string;
     Diff: number;
+    PEN: string
 }
 
-export  interface PlayerResult {
+export interface PlayerResult {
     UserID: string;
     Name: string;
     OrderNumber: number;
@@ -22,14 +23,21 @@ export interface CompetitionElement {
     Results: PlayerResult[];
 }
 
-export  interface MetrixCachedRow {
-    competition_id: number;
-    data: CompetitionElement;
-    created_date: string;
+export type MetrixIdentity = {
+    userId: number
+    name: string
 }
 
 interface MetrixAPIResponse {
     Competition: CompetitionElement;
+}
+
+export async function fetchMetrixIdentityByEmail(email: string): Promise<MetrixIdentity | null> {
+    // return demo user 753 Eivo Kisand:
+    if (email.toLowerCase() === 'apunkto@gmail.com'){
+        return {userId: 753, name: 'Eivo Kisand'};
+    }
+    else return null;
 }
 
 export const updateHoleStatsFromMetrix = async (env: Env) => {
@@ -126,3 +134,6 @@ export const updateHoleStatsFromMetrix = async (env: Env) => {
 
     return {success: !error, updated: updates.length, error};
 };
+
+
+

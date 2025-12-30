@@ -132,3 +132,20 @@ create index if not exists metrix_result_competition_id_idx
 
 alter table metrix_result
     add constraint metrix_result_competition_id_unique unique (competition_id);
+
+delete from player;
+
+alter table player
+    add column email varchar(255) not null,
+    add column metrix_user_id bigint not null;
+
+create unique index player_email_uidx on player (email);
+create unique index player_metrix_user_id_uidx on player (metrix_user_id);
+
+ALTER TABLE ctp_results
+    ALTER COLUMN player_id SET NOT NULL,
+    ALTER COLUMN hole_id SET NOT NULL;
+
+-- Uniqueness: one result per player per hole
+ALTER TABLE ctp_results
+    ADD CONSTRAINT ctp_results_unique_player_hole UNIQUE (hole_id, player_id);

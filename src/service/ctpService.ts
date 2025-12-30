@@ -1,10 +1,10 @@
-import { Env } from "../index"
-import { getSupabaseClient } from "../supabase"
+import {Env} from "../index"
+import {getSupabaseClient} from "../supabase"
 import {getConfigValue} from "./configService";
 
 const fetchHoleWithCtp = async (supabase: any, holeFilter: Record<string, any>) => {
     // Get hole
-    const { data: holeData, error: holeError } = await supabase
+    const {data: holeData, error: holeError} = await supabase
         .from("hole")
         .select("*")
         .match(holeFilter)
@@ -13,23 +13,23 @@ const fetchHoleWithCtp = async (supabase: any, holeFilter: Record<string, any>) 
     if (holeError || !holeData) {
         return {
             data: null,
-            error: holeError ?? { message: "Hole not found", code: "hole_not_found" }
+            error: holeError ?? {message: "Hole not found", code: "hole_not_found"}
         }
     }
 
     // If not a CTP hole, skip CTP results
     if (!holeData.is_ctp) {
-        return { data: { hole: holeData, ctp: [] }, error: null }
+        return {data: {hole: holeData, ctp: []}, error: null}
     }
 
-    const { data: ctpData, error: ctpError } = await supabase
+    const {data: ctpData, error: ctpError} = await supabase
         .from("ctp_results")
         .select("*, player:player_id(*)")
         .eq("hole_id", holeData.id)
-        .order("distance_cm", { ascending: true })
+        .order("distance_cm", {ascending: true})
 
     return {
-        data: { hole: holeData, ctp: ctpError ? [] : ctpData ?? [] },
+        data: {hole: holeData, ctp: ctpError ? [] : ctpData ?? []},
         error: null
     }
 }
@@ -38,25 +38,25 @@ const fetchHoleWithCtp = async (supabase: any, holeFilter: Record<string, any>) 
 // ✅ Public method: Get hole by number
 export const getHoleByNumber = async (env: Env, holeNumber: number) => {
     const supabase = getSupabaseClient(env)
-    return await fetchHoleWithCtp(supabase, { number: holeNumber })
+    return await fetchHoleWithCtp(supabase, {number: holeNumber})
 }
 
 // ✅ Public method: Get hole by ID
 export const getHole = async (env: Env, holeId: number) => {
     const supabase = getSupabaseClient(env)
-    return await fetchHoleWithCtp(supabase, { id: holeId })
+    return await fetchHoleWithCtp(supabase, {id: holeId})
 }
 
 // ✅ Submit CTP result
 export const submitCtpResult = async (
     env: Env,
     holeId: number,
-    player_id: string,
+    player_id: number,
     distance_cm: number
 ) => {
     const supabase = getSupabaseClient(env)
 
-    const { data: ctpEnabled, error: configError } = await getConfigValue(env, "ctp_enabled");
+    const {data: ctpEnabled, error: configError} = await getConfigValue(env, "ctp_enabled");
     if (configError || ctpEnabled !== "true") {
         return {
             data: null,
@@ -67,16 +67,16 @@ export const submitCtpResult = async (
         }
     }
 
-    const { data, error: holeError } = await getHole(env, holeId)
+    const {data, error: holeError} = await getHole(env, holeId)
 
     if (holeError || !data) {
         return {
             data: null,
-            error: holeError ?? { message: "Hole not found", code: "hole_not_found" }
+            error: holeError ?? {message: "Hole not found", code: "hole_not_found"}
         }
     }
 
-    const { hole, ctp: currentLeader } = data
+    const {hole, ctp} = data
 
     if (!hole.is_ctp) {
         return {
@@ -88,7 +88,20 @@ export const submitCtpResult = async (
         }
     }
 
-    if (currentLeader && distance_cm >= currentLeader.distance_cm) {
+    if (Array.isArray(ctp) && ctp.some(r => r.player_id === player_id)) {
+        return {
+            data: null,
+            error: {
+                message: `You have already submitted a CTP result for hole ${hole.number}`,
+                code: "ctp_already_submitted"
+            }
+        }
+    }
+
+    const currentLeader = Array.isArray(ctp) && ctp.length > 0 ? ctp[0] : null
+    const leaderDistance = currentLeader ? Number(currentLeader.distance_cm) : null
+
+    if (leaderDistance !== null && distance_cm >= leaderDistance) {
         return {
             data: null,
             error: {
@@ -98,7 +111,7 @@ export const submitCtpResult = async (
         }
     }
 
-    const { data: insertData, error: insertError } = await supabase
+    const {data: insertData, error: insertError} = await supabase
         .from("ctp_results")
         .insert([
             {
@@ -108,33 +121,33 @@ export const submitCtpResult = async (
             }
         ])
 
-    return { data: insertData, error: insertError }
+    return {data: insertData, error: insertError}
 }
 
 export const getCtpHoles = async (env: Env) => {
     const supabase = getSupabaseClient(env);
 
-    const { data: holes, error: holeError } = await supabase
+    const {data: holes, error: holeError} = await supabase
         .from('hole')
         .select('*')
         .eq('is_ctp', true)
-        .order('number', { ascending: true });
+        .order('number', {ascending: true});
 
     if (holeError || !holes) {
-        return { data: [], error: holeError ?? { message: "No CTP holes found", code: "ctp_hole_not_found" } };
+        return {data: [], error: holeError ?? {message: "No CTP holes found", code: "ctp_hole_not_found"}};
     }
 
     // Fetch CTP results for all holes
     const holeIds = holes.map(h => h.id);
 
-    const { data: ctpResults, error: ctpError } = await supabase
+    const {data: ctpResults, error: ctpError} = await supabase
         .from('ctp_results')
         .select('*, player:player_id(*)')
         .in('hole_id', holeIds)
-        .order('distance_cm', { ascending: true });
+        .order('distance_cm', {ascending: true});
 
     if (ctpError) {
-        return { data: holes.map(hole => ({ hole, ctp: [] })), error: null };
+        return {data: holes.map(hole => ({hole, ctp: []})), error: null};
     }
 
     // Group CTP results by hole
@@ -151,27 +164,27 @@ export const getCtpHoles = async (env: Env) => {
         ctp: grouped[hole.id] ?? []
     }));
 
-    return { data: enriched, error: null };
+    return {data: enriched, error: null};
 };
 
 export const getTopRankedHoles = async (env: Env) => {
     const supabase = getSupabaseClient(env)
 
-    const { data, error } = await supabase
+    const {data, error} = await supabase
         .from('hole')
         .select('*')
-        .order('rank', { ascending: true })
+        .order('rank', {ascending: true})
         .limit(10)
 
     if (error || !data) {
         return {
             data: [],
-            error: error ?? { message: 'Failed to fetch ranked holes', code: 'rank_fetch_error' }
+            error: error ?? {message: 'Failed to fetch ranked holes', code: 'rank_fetch_error'}
         }
     }
 
     return {
-        data: data.map(hole => ({ hole, ctp: [] })), // include empty ctp for compatibility
+        data: data.map(hole => ({hole, ctp: []})), // include empty ctp for compatibility
         error: null
     }
 }
@@ -179,19 +192,19 @@ export const getTopRankedHoles = async (env: Env) => {
 export const getHoles = async (env: Env) => {
     const supabase = getSupabaseClient(env)
 
-    const { data, error } = await supabase
+    const {data, error} = await supabase
         .from('hole')
         .select('*')
 
     if (error || !data) {
         return {
             data: [],
-            error: error ?? { message: 'Failed to fetch holes', code: 'rank_fetch_error' }
+            error: error ?? {message: 'Failed to fetch holes', code: 'rank_fetch_error'}
         }
     }
 
     return {
-        data: data.map(hole => ({ hole, ctp: [] })), // include empty ctp for compatibility
+        data: data.map(hole => ({hole, ctp: []})), // include empty ctp for compatibility
         error: null
     }
 }

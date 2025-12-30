@@ -1,6 +1,6 @@
 import {getSupabaseClient} from '../supabase'
 import type {Env} from '../index'
-import {CompetitionElement, PlayerResult} from "./metrixService";
+import {PlayerResult} from "./metrixService";
 
 
 export type PlayerStatsResponse = {
@@ -25,6 +25,8 @@ export type PlayerStatsResponse = {
         doubleBogeys: number;
         tripleOrWorse: number;
     } | null;
+    holes: { played: number; total: number; playedPct: number | null };
+    obHoles: number;
 };
 
 const getCachedCompetition = async (env: Env, competitionId: number) => {
@@ -68,7 +70,6 @@ export const getMetrixPlayerStats = async (env: Env, userId: string, competition
     if (cached.error) return {data: null, error: cached.error};
 
     const results = cached.data!.results ?? [];
-    console.log('results', results);
     const selected = results.find(p => p.UserID === userId);
 
     if (!selected) {
@@ -106,6 +107,24 @@ export const getMetrixPlayerStats = async (env: Env, userId: string, competition
         scoreBreakdown = {eagles, birdies, pars, bogeys, doubleBogeys, tripleOrWorse};
     }
 
+    //holes played:
+    const holes = selected.PlayerResults ?? []
+    const totalHoles = holes.length
+
+    const playedHoles = holes.reduce((acc, h) => {
+        // adjust if your API uses different “not played” markers
+        const r = (h.Result ?? "").trim()
+        return acc + (r !== "" ? 1 : 0)
+    }, 0)
+
+    const playedPct = totalHoles > 0 ? (playedHoles / totalHoles) * 100 : null
+
+    //OB holes
+    const obHoles = holes.filter(h => {
+        const pen = Number(String(h.PEN ?? "0").replace(",", "."))
+        return Number.isFinite(pen) && pen > 0
+    }).length
+
     const response: PlayerStatsResponse = {
         competitionId: id,
         cachedAt: cached.data!.cachedAt,
@@ -121,6 +140,8 @@ export const getMetrixPlayerStats = async (env: Env, userId: string, competition
         deltaToClassLeader,
         overallPlace,
         scoreBreakdown,
+        holes: { played: playedHoles, total: totalHoles, playedPct },
+        obHoles,
     };
 
     return {data: response, error: null};

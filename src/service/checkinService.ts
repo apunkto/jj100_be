@@ -152,3 +152,15 @@ export const deleteCheckinPlayer = async (env: Env, checkinId: number) => {
 
     return { error: null }
 }
+
+export const getMyCheckin = async (env: Env, player_id: number) => {
+    const supabase = getSupabaseClient(env)
+
+    const { data, error } = await supabase
+        .from('lottery_checkin')
+        .select('*')
+        .eq('player_id', player_id)
+        .maybeSingle()
+
+    return { data, error }
+}
