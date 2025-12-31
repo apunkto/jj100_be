@@ -1,7 +1,12 @@
 import {Hono} from 'hono'
 import {cors} from 'hono/cors'
 import {getCtpHoles, getHoleByNumber, getHoles, getTopRankedHoles, submitCtpResult} from './service/ctpService'
-import {getPlayers, PlayerIdentity, resolvePlayerIdentity} from './service/playerService'
+import {
+    getParticipationLeaders,
+    getUserParticipation,
+    PlayerIdentity,
+    resolvePlayerIdentity
+} from './service/playerService'
 import {
     checkInPlayer,
     confirmFinalGamePlayer,
@@ -14,7 +19,7 @@ import {getConfigValue} from "./service/configService";
 import {submitFeedback} from "./service/feedbackService";
 import type {ExecutionContext, ScheduledEvent} from '@cloudflare/workers-types';
 import {fetchMetrixIdentityByEmail, updateHoleStatsFromMetrix} from "./service/metrixService";
-import {getMetrixPlayers, getMetrixPlayerStats} from "./service/metrixStatsService";
+import {getMetrixPlayerStats} from "./service/metrixStatsService";
 import {verifySupabaseJwt} from "./service/authService";
 
 const PUBLIC_PATHS = [
@@ -84,12 +89,6 @@ app.post('/ctp/:hole', async (c) => {
 
         return c.json({success: false, data: null, error}, status)
     }
-
-    return c.json({success: !error, data, error})
-})
-
-app.get('/players', async (c) => {
-    const {data, error} = await getPlayers(c.env)
 
     return c.json({success: !error, data, error})
 })
@@ -302,15 +301,6 @@ app.get('/holes', async (c) => {
     return c.json(data)
 })
 
-app.get('/metrix/players', async (c) => {
-    const competitionIdParam = c.req.query('competition_id');
-    const competitionId = competitionIdParam ? Number(competitionIdParam) : undefined;
-
-    const {data, error} = await getMetrixPlayers(c.env, competitionId);
-    if (error) return c.json({error}, 500);
-
-    return c.json({success: true, data});
-});
 
 // stats for selected player
 app.get('/metrix/player/stats', async (c) => {
@@ -344,3 +334,20 @@ app.post('/metrix/check-email', async (c) => {
     const metrixUserId = data ? data.userId : null
     return c.json({success: true, data: {metrixUserId}})
 })
+
+//get user participations:
+app.get('/player/participations', async (c) => {
+    const user = c.get('user') // always defined
+    const userMetrixId = user.metrixUserId;
+    if (!userMetrixId) return c.json({error: 'Invalid metrixUserId'}, 400);
+
+    const participations = await getUserParticipation(c.env, userMetrixId);
+    return c.json({success: true, data: participations});
+})
+
+app.get('/player/participations/leaders', async (c) => {
+    console.log('Fetching participation leaders');
+    const leaders = await getParticipationLeaders(c.env)
+    return c.json({ success: true, data: leaders })
+})
+

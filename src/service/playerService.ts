@@ -9,9 +9,16 @@ export type PlayerIdentity = {
     name: string
 }
 
-export const getPlayers = async (env: Env) => {
-    const supabase = getSupabaseClient(env)
-    return supabase.from('player').select('*').order('name', {ascending: true})
+export type UserParticipation = {
+    year: number
+    place: number
+    score: number
+}
+
+export type ParticipationLeader = {
+    metrixUserId: number
+    name: string
+    participationYears: number
 }
 
 export async function resolvePlayerIdentity(env: Env, email: string): Promise<PlayerIdentity> {
@@ -63,3 +70,58 @@ export async function resolvePlayerIdentity(env: Env, email: string): Promise<Pl
         name: upsert.data.name,
     }
 }
+
+
+export async function getUserParticipation(env: Env, userMetrixId: number): Promise<UserParticipation[]> {
+    const supabase = getSupabaseClient(env)
+    const {data, error} = await supabase
+        .from('player_participation')
+        .select('year, rank, score')
+        .eq('metrix_user_id', userMetrixId)
+        .order('year', {ascending: false})
+
+    if (error) {
+        throw new Error(error.message)
+    }
+
+    return data.map(d => ({
+        year: d.year,
+        place: d.rank,
+        score: d.score,
+    }))
+}
+
+export async function getParticipationLeaders(env: Env): Promise<ParticipationLeader[]> {
+    const supabase = getSupabaseClient(env)
+
+    const pageSize = 1000
+    let from = 0
+    const all: any[] = []
+
+    while (true) {
+        const to = from + pageSize - 1
+
+        const { data, error } = await supabase
+            .from('participation_leaderboard')
+            .select('metrix_user_id, player_name, participation_years')
+            .order('participation_years', { ascending: false })
+            .order('metrix_user_id', { ascending: true })
+            .range(from, to)
+
+        if (error) throw new Error(error.message)
+
+        const chunk = data ?? []
+        all.push(...chunk)
+
+        if (chunk.length < pageSize) break
+        from += pageSize
+    }
+
+    return all.map(d => ({
+        metrixUserId: d.metrix_user_id,
+        name: d.player_name,
+        participationYears: d.participation_years,
+    }))
+}
+
+

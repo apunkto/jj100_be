@@ -73,7 +73,7 @@ export const getMetrixPlayerStats = async (env: Env, userId: string, competition
     const selected = results.find(p => p.UserID === userId);
 
     if (!selected) {
-        return {data: null, error: {message: `Player ${userId} not found in cached competition ${id}`}};
+        return { data: null, error: null }
     }
 
     // delta to class leader

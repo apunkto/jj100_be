@@ -122,7 +122,7 @@ create table metrix_result
 (
     id             bigserial   NOT NULL PRIMARY KEY,
     competition_id bigint      NOT NULL,
-    data           jsonb        not null,
+    data           jsonb       not null,
     created_date   timestamptz NOT NULL DEFAULT now()
 );
 
@@ -133,11 +133,12 @@ create index if not exists metrix_result_competition_id_idx
 alter table metrix_result
     add constraint metrix_result_competition_id_unique unique (competition_id);
 
-delete from player;
+delete
+from player;
 
 alter table player
-    add column email varchar(255) not null,
-    add column metrix_user_id bigint not null;
+    add column email          varchar(255) not null,
+    add column metrix_user_id bigint       not null;
 
 create unique index player_email_uidx on player (email);
 create unique index player_metrix_user_id_uidx on player (metrix_user_id);
@@ -149,3 +150,43 @@ ALTER TABLE ctp_results
 -- Uniqueness: one result per player per hole
 ALTER TABLE ctp_results
     ADD CONSTRAINT ctp_results_unique_player_hole UNIQUE (hole_id, player_id);
+
+
+create table player_participation
+(
+    id             bigserial NOT NULL PRIMARY KEY,
+    metrix_user_id bigint    NOT NULL,
+    year           int       NOT NULL,
+    rank           int       NOT NULL,
+    score          int       NOT null,
+    player_name    text      not NULL
+);
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS pp_user_year_idx
+    ON player_participation (metrix_user_id, year);
+
+CREATE OR REPLACE VIEW participation_leaderboard AS
+WITH latest_year AS (
+    SELECT metrix_user_id, MAX(year) AS max_year
+    FROM player_participation
+    GROUP BY metrix_user_id
+),
+     last_name AS (
+         SELECT DISTINCT ON (p.metrix_user_id)
+             p.metrix_user_id,
+             p.player_name
+         FROM player_participation p
+                  JOIN latest_year ly
+                       ON ly.metrix_user_id = p.metrix_user_id
+                           AND ly.max_year = p.year
+         ORDER BY p.metrix_user_id, p.id DESC
+     )
+SELECT
+    p.metrix_user_id,
+    ln.player_name,
+    COUNT(DISTINCT p.year) AS participation_years
+FROM player_participation p
+         JOIN last_name ln
+              ON ln.metrix_user_id = p.metrix_user_id
+GROUP BY p.metrix_user_id, ln.player_name
+ORDER BY participation_years DESC, p.metrix_user_id;
