@@ -29,7 +29,7 @@ export type PlayerStatsResponse = {
     obHoles: number;
 };
 
-const getCachedCompetition = async (env: Env, competitionId: number) => {
+export const getCachedCompetition = async (env: Env, competitionId: number) => {
     const supabase = getSupabaseClient(env);
 
     const {data, error} = await supabase

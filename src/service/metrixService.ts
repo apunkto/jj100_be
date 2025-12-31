@@ -1,5 +1,6 @@
 import {getSupabaseClient} from '../supabase';
 import type {Env} from '../index';
+import {getCachedCompetition} from "./metrixStatsService";
 
 // Types for Metrix API Response
 export interface HoleResult {
@@ -17,6 +18,7 @@ export interface PlayerResult {
     Sum: number;
     Dnf?: boolean | null;
     PlayerResults?: HoleResult[];
+    Group: string
 }
 
 export interface CompetitionElement {
@@ -34,10 +36,9 @@ interface MetrixAPIResponse {
 
 export async function fetchMetrixIdentityByEmail(email: string): Promise<MetrixIdentity | null> {
     // return demo user 753 Eivo Kisand:
-    if (email.toLowerCase() === 'apunkto@gmail.com'){
+    if (email.toLowerCase() === 'apunkto@gmail.com') {
         return {userId: 753, name: 'Eivo Kisand'};
-    }
-    else return null;
+    } else return null;
 }
 
 export const updateHoleStatsFromMetrix = async (env: Env) => {
@@ -135,5 +136,64 @@ export const updateHoleStatsFromMetrix = async (env: Env) => {
     return {success: !error, updated: updates.length, error};
 };
 
+export const getCurrentHole = async (env: Env, userId: number, competitionId: number) => {
+    const cached = await getCachedCompetition(env, competitionId)
+    if (cached.error) return { data: null, error: cached.error }
 
+    // cached.data!.results is the Results array
+    const results = (cached.data?.results ?? []) as any[]
 
+    const player = results.find((p) => p.UserID === String(userId))
+    if (!player) return { data: 1, error: null }
+
+    const playerResults: any[] = Array.isArray(player.PlayerResults) ? player.PlayerResults : []
+    const totalHoles = playerResults.length
+
+    if (totalHoles <= 0) {
+        const g = Number(player.Group)
+        return { data: Number.isFinite(g) && g > 0 ? g : 1, error: null }
+    }
+
+    const isPlayed = (entry: any): boolean => {
+        if (!entry) return false
+        if (Array.isArray(entry)) return false // [] means unplayed
+        const r = String(entry.Result ?? '').trim()
+        return r !== ''
+    }
+
+    const playedFlags = playerResults.map(isPlayed)
+    const anyPlayed = playedFlags.some(Boolean)
+
+    // If player has not played any holes -> return Group
+    if (!anyPlayed) {
+        const g = Number(player.Group)
+        return { data: Number.isFinite(g) && g > 0 ? g : 1, error: null }
+    }
+
+    // Find last played index (by array position)
+    let lastPlayedIndex = -1
+    for (let i = totalHoles - 1; i >= 0; i--) {
+        if (playedFlags[i]) {
+            lastPlayedIndex = i
+            break
+        }
+    }
+
+    // Safety fallback
+    if (lastPlayedIndex === -1) {
+        const g = Number(player.Group)
+        return { data: Number.isFinite(g) && g > 0 ? g : 1, error: null }
+    }
+
+    // Scan from the next hole, wrapping around, to find the first unplayed hole
+    const start = (lastPlayedIndex + 1) % totalHoles
+    for (let step = 0; step < totalHoles; step++) {
+        const idx = (start + step) % totalHoles
+        if (!playedFlags[idx]) {
+            return { data: idx + 1, error: null } // hole number is index+1
+        }
+    }
+
+    // All holes played
+    return { data: 1, error: null }
+}

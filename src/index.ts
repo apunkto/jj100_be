@@ -18,7 +18,7 @@ import {
 import {getConfigValue} from "./service/configService";
 import {submitFeedback} from "./service/feedbackService";
 import type {ExecutionContext, ScheduledEvent} from '@cloudflare/workers-types';
-import {fetchMetrixIdentityByEmail, updateHoleStatsFromMetrix} from "./service/metrixService";
+import {fetchMetrixIdentityByEmail, getCurrentHole, updateHoleStatsFromMetrix} from "./service/metrixService";
 import {getMetrixPlayerStats} from "./service/metrixStatsService";
 import {verifySupabaseJwt} from "./service/authService";
 
@@ -334,6 +334,19 @@ app.post('/metrix/check-email', async (c) => {
     const metrixUserId = data ? data.userId : null
     return c.json({success: true, data: {metrixUserId}})
 })
+
+
+app.get('/metrix/player/current-hole', async (c) => {
+    const user = c.get('user') // always defined
+    const env = c.env
+    const competitionId = Number(env.CURRENT_COMPETITION_ID);
+
+
+    const {data, error} = await getCurrentHole(c.env, user.metrixUserId, competitionId);
+    if (error) return c.json({error}, 404);
+
+    return c.json({success: true, data: {currentHole: data}});
+});
 
 //get user participations:
 app.get('/player/participations', async (c) => {
