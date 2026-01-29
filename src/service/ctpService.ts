@@ -195,6 +195,7 @@ export const getHoles = async (env: Env) => {
     const {data, error} = await supabase
         .from('hole')
         .select('*')
+        .order('number', {ascending: true})
 
     if (error || !data) {
         return {

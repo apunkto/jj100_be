@@ -166,27 +166,30 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS pp_user_year_idx
     ON player_participation (metrix_user_id, year);
 
 CREATE OR REPLACE VIEW participation_leaderboard AS
-WITH latest_year AS (
-    SELECT metrix_user_id, MAX(year) AS max_year
-    FROM player_participation
-    GROUP BY metrix_user_id
-),
-     last_name AS (
-         SELECT DISTINCT ON (p.metrix_user_id)
-             p.metrix_user_id,
-             p.player_name
-         FROM player_participation p
-                  JOIN latest_year ly
-                       ON ly.metrix_user_id = p.metrix_user_id
-                           AND ly.max_year = p.year
-         ORDER BY p.metrix_user_id, p.id DESC
-     )
-SELECT
-    p.metrix_user_id,
-    ln.player_name,
-    COUNT(DISTINCT p.year) AS participation_years
+WITH latest_year AS (SELECT metrix_user_id, MAX(year) AS max_year
+                     FROM player_participation
+                     GROUP BY metrix_user_id),
+     last_name AS (SELECT DISTINCT ON (p.metrix_user_id) p.metrix_user_id,
+                                                         p.player_name
+                   FROM player_participation p
+                            JOIN latest_year ly
+                                 ON ly.metrix_user_id = p.metrix_user_id
+                                     AND ly.max_year = p.year
+                   ORDER BY p.metrix_user_id, p.id DESC)
+SELECT p.metrix_user_id,
+       ln.player_name,
+       COUNT(DISTINCT p.year) AS participation_years
 FROM player_participation p
          JOIN last_name ln
               ON ln.metrix_user_id = p.metrix_user_id
 GROUP BY p.metrix_user_id, ln.player_name
 ORDER BY participation_years DESC, p.metrix_user_id;
+
+ALTER TABLE hole
+    ADD COLUMN rules text;
+
+ALTER TABLE hole
+    ADD COLUMN par numeric;
+
+ALTER TABLE hole
+    ADD COLUMN is_food boolean NOT NULL DEFAULT false;

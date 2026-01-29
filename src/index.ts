@@ -70,7 +70,6 @@ app.get('/hole/:number', async (c) => {
     return c.json(data)
 })
 
-
 app.post('/ctp/:hole', async (c) => {
     const hole = Number(c.req.param('hole'))
     const {distance_cm} = await c.req.json()
@@ -358,9 +357,26 @@ app.get('/player/participations', async (c) => {
     return c.json({success: true, data: participations});
 })
 
-app.get('/player/participations/leaders', async (c) => {
-    console.log('Fetching participation leaders');
+app.get("/player/participations/leaders", async (c) => {
+    const cache = await caches.open("leaders-cache")
+    const cacheKey = new Request(c.req.url, c.req.raw)
+
+
+    const hit = await cache.match(cacheKey)
+    console.log('Cache lookup for', cacheKey.url, hit ? 'HIT' : 'MISS')
+    if (hit) return hit
+
     const leaders = await getParticipationLeaders(c.env)
-    return c.json({ success: true, data: leaders })
+
+    const res = c.json(
+        { success: true, data: leaders },
+        200,
+       /* {
+            "Cache-Control": "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=86400",
+        }*/
+    )
+
+    await cache.put(cacheKey, res.clone())
+    return res
 })
 
