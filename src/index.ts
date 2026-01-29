@@ -61,13 +61,13 @@ app.use('*', async (c, next) => {
 
 app.get('/hole/:number', async (c) => {
     const holeNumber = Number(c.req.param('number'))
-    const {data, error} = await getHoleByNumber(c.env, holeNumber)
+    const { data, error } = await getHoleByNumber(c.env, holeNumber)
 
-    if (error) {
-        return c.json({error}, 400)
-    }
+    if (error) return c.json({ error }, 400)
 
-    return c.json(data)
+    return c.json(data, 200, {
+        "Cache-Control": "public, max-age=60, must-revalidate"
+    })
 })
 
 app.post('/ctp/:hole', async (c) => {
