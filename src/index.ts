@@ -2,7 +2,7 @@ import {Hono} from 'hono'
 import {cors} from 'hono/cors'
 import {getCtpHoles, getHoleByNumber, getHoles, getTopRankedHoles, submitCtpResult} from './service/ctpService'
 import {
-    getParticipationLeaders,
+    getParticipationLeaderboard,
     getUserParticipation,
     PlayerIdentity,
     resolvePlayerIdentity
@@ -349,34 +349,41 @@ app.get('/metrix/player/current-hole', async (c) => {
 
 //get user participations:
 app.get('/player/participations', async (c) => {
-    const user = c.get('user') // always defined
-    const userMetrixId = user.metrixUserId;
-    if (!userMetrixId) return c.json({error: 'Invalid metrixUserId'}, 400);
+    const user = c.get('user')
+    const userMetrixId = user.metrixUserId
+    if (!userMetrixId) return c.json({error: 'Invalid metrixUserId'}, 400)
 
-    const participations = await getUserParticipation(c.env, userMetrixId);
-    return c.json({success: true, data: participations});
+    const participations = await getUserParticipation(c.env, userMetrixId)
+
+    return c.json(
+        {success: true, data: participations},
+        200,
+        {
+            "Cache-Control": "private, max-age=604800, stale-while-revalidate=86400",
+        }
+    )
 })
 
 app.get("/player/participations/leaders", async (c) => {
     const cache = await caches.open("leaders-cache")
-    const cacheKey = new Request(c.req.url, c.req.raw)
 
+    // stable key, not tied to incoming headers
+    const cacheKey = new Request("https://cache.local/leadersV1", {method: "GET"})
 
     const hit = await cache.match(cacheKey)
-    console.log('Cache lookup for', cacheKey.url, hit ? 'HIT' : 'MISS')
+    console.log("Cache lookup:", hit ? "HIT" : "MISS")
     if (hit) return hit
 
-    const leaders = await getParticipationLeaders(c.env)
+    const leaderboard = await getParticipationLeaderboard(c.env)
 
-    const res = c.json(
-        { success: true, data: leaders },
-        200,
-       /* {
-            "Cache-Control": "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=86400",
-        }*/
-    )
+    const res = c.json({success: true, data: leaderboard})
+
+    // Make response cacheable + CORS that doesn't vary
+    res.headers.set("Cache-Control", "public, max-age=86400, s-maxage=2592000")
+    res.headers.set("Access-Control-Allow-Origin", "*")
+    res.headers.set("Access-Control-Allow-Methods", "GET,OPTIONS")
+    res.headers.delete("Vary") // important if your framework added Vary: Origin
 
     await cache.put(cacheKey, res.clone())
     return res
 })
-

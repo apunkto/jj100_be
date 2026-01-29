@@ -15,10 +15,18 @@ export type UserParticipation = {
     score: number
 }
 
-export type ParticipationLeader = {
+type RawLeader = {
     metrixUserId: number
     name: string
     participationYears: number
+}
+
+export type ParticipationLeaderboard = {
+    maxAmount: number
+    buckets: Array<{
+        amount: number
+        players: Array<{ metrixUserId: number; name: string }>
+    }>
 }
 
 export async function resolvePlayerIdentity(env: Env, email: string): Promise<PlayerIdentity> {
@@ -90,38 +98,58 @@ export async function getUserParticipation(env: Env, userMetrixId: number): Prom
         score: d.score,
     }))
 }
-
-export async function getParticipationLeaders(env: Env): Promise<ParticipationLeader[]> {
+export async function getParticipationLeaderboard(env: Env): Promise<ParticipationLeaderboard> {
     const supabase = getSupabaseClient(env)
 
     const pageSize = 1000
     let from = 0
-    const all: any[] = []
+    const all: RawLeader[] = []
 
     while (true) {
         const to = from + pageSize - 1
 
         const { data, error } = await supabase
-            .from('participation_leaderboard')
-            .select('metrix_user_id, player_name, participation_years')
-            .order('participation_years', { ascending: false })
-            .order('metrix_user_id', { ascending: true })
+            .from("participation_leaderboard")
+            .select("metrix_user_id, player_name, participation_years")
+            .order("participation_years", { ascending: false })
+            .order("metrix_user_id", { ascending: true })
             .range(from, to)
 
         if (error) throw new Error(error.message)
 
-        const chunk = data ?? []
+        const chunk = (data ?? []).map((d: any) => ({
+            metrixUserId: d.metrix_user_id,
+            name: d.player_name,
+            participationYears: d.participation_years,
+        })) as RawLeader[]
+
         all.push(...chunk)
 
         if (chunk.length < pageSize) break
         from += pageSize
     }
 
-    return all.map(d => ({
-        metrixUserId: d.metrix_user_id,
-        name: d.player_name,
-        participationYears: d.participation_years,
-    }))
+    // Build buckets
+    const map = new Map<number, Array<{ metrixUserId: number; name: string }>>()
+
+    for (const l of all) {
+        const arr = map.get(l.participationYears) ?? []
+        arr.push({ metrixUserId: l.metrixUserId, name: l.name })
+        map.set(l.participationYears, arr)
+    }
+
+    const amounts = Array.from(map.keys()).sort((a, b) => b - a)
+
+    const buckets = amounts.map((amount) => {
+        const players = map.get(amount)!
+        players.sort((a, b) => a.name.localeCompare(b.name, "et"))
+        return { amount, players }
+    })
+
+    return {
+        maxAmount: amounts[0] ?? 0,
+        buckets,
+    }
 }
 
 
