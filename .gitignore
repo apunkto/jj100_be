@@ -2000,3 +2000,5 @@
 /.wrangler/tmp/dev-ZZbXR2/index.js
 /.wrangler/tmp/dev-ZZbXR2/index.js.map
 /db/import/
+/.idea/
+/.wrangler/

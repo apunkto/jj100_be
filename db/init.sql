@@ -44,18 +44,7 @@ alter table ctp_results
 alter table ctp_results
     drop column hole;
 
-CREATE TABLE config
-(
-    key   varchar(255) NOT NULL PRIMARY KEY,
-    value text
-);
-
---ctp_enabled
-insert into config (key, value)
-values ('ctp_enabled', 'false');
-
-insert into config (key, value)
-values ('checkin_enabled', 'false');
+-- Config table removed - functionality moved to metrix_competition table
 
 alter table lottery_checkin
     add column prize_won boolean default false;
@@ -193,3 +182,117 @@ ALTER TABLE hole
 
 ALTER TABLE hole
     ADD COLUMN is_food boolean NOT NULL DEFAULT false;
+
+-- 2025-02-03: metrix_competition registry for scheduled sync (waiting | started | finished)
+create table metrix_competition
+(
+    id                    bigserial   NOT NULL PRIMARY KEY,
+    metrix_competition_id bigint      NOT NULL,
+    name                  text,       -- competition name (e.g. from Metrix)
+    status                varchar(20) NOT NULL DEFAULT 'waiting', -- waiting | started | finished
+    last_synced_at        timestamptz,
+    created_date          timestamptz NOT NULL DEFAULT now()
+);
+create unique index metrix_competition_metrix_id_uidx on metrix_competition (metrix_competition_id);
+create index metrix_competition_status_idx on metrix_competition (status);
+
+alter table metrix_competition
+    add column competition_date date;
+
+-- 2025-02-04: Add ctp_enabled and checkin_enabled flags to metrix_competition
+alter table metrix_competition
+    add column ctp_enabled boolean NOT NULL DEFAULT false,
+    add column checkin_enabled boolean NOT NULL DEFAULT false;
+
+-- 2025-02-03: metrix_player_result normalized per-player cache (replaces loading full json from metrix_result)
+create table metrix_player_result
+(
+    id             bigserial   NOT NULL PRIMARY KEY,
+    competition_id bigint      NOT NULL, -- metrix_competition_id
+    user_id        varchar(32) NOT NULL, -- metrix UserID
+    name           text,
+    class_name     text,
+    order_number   int,
+    diff           int,
+    sum            int,
+    dnf            boolean     NOT NULL DEFAULT false,
+    start_group    int,        -- player Group (avoid reserved "group")
+    player_results jsonb,     -- this player's hole results only
+    created_date   timestamptz NOT NULL DEFAULT now(),
+    updated_date   timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (competition_id, user_id)
+);
+create index metrix_player_result_competition_user_idx on metrix_player_result (competition_id, user_id);
+
+-- 2025-02-03: per-user active competition (our metrix_competition.id)
+alter table player add column active_competition_id bigint references metrix_competition(id);
+create index player_active_competition_id_idx on player(active_competition_id);
+
+-- 2025-02-03: holes per competition
+ALTER TABLE hole ADD COLUMN metrix_competition_id bigint;
+ALTER TABLE hole ADD COLUMN card_img varchar(255);
+
+-- Backfill existing rows (requires at least one metrix_competition)
+UPDATE hole SET metrix_competition_id = (SELECT id FROM metrix_competition ORDER BY id LIMIT 1)
+WHERE metrix_competition_id IS NULL;
+
+-- Set NOT NULL after backfill
+ALTER TABLE hole ALTER COLUMN metrix_competition_id SET NOT NULL;
+
+-- Add FK and unique constraint
+ALTER TABLE hole ADD CONSTRAINT hole_metrix_competition_id_fk
+  FOREIGN KEY (metrix_competition_id) REFERENCES metrix_competition(id);
+
+-- Replace unique constraint: (number) -> (metrix_competition_id, number)
+ALTER TABLE hole DROP CONSTRAINT IF EXISTS hole_number_key;
+ALTER TABLE hole ADD CONSTRAINT hole_competition_number_unique UNIQUE (metrix_competition_id, number);
+
+-- 2025-02-04: Add metrix_competition_id to lottery_checkin table
+-- Delete all existing check-in data to allow NOT NULL constraint
+DELETE FROM lottery_checkin;
+
+-- Drop the old unique constraint on player_id
+ALTER TABLE lottery_checkin DROP CONSTRAINT IF EXISTS lottery_checkin_player_id_key;
+
+-- Add metrix_competition_id column (references metrix_competition.id, the internal ID)
+ALTER TABLE lottery_checkin ADD COLUMN metrix_competition_id bigint;
+
+-- Set NOT NULL after data deletion
+ALTER TABLE lottery_checkin ALTER COLUMN metrix_competition_id SET NOT NULL;
+
+-- Add foreign key constraint
+ALTER TABLE lottery_checkin ADD CONSTRAINT lottery_checkin_metrix_competition_id_fk
+  FOREIGN KEY (metrix_competition_id) REFERENCES metrix_competition(id);
+
+-- Add unique constraint: one check-in per player per competition
+ALTER TABLE lottery_checkin ADD CONSTRAINT lottery_checkin_player_competition_unique 
+  UNIQUE (player_id, metrix_competition_id);
+
+-- 2025-02-04: Refactor metrix_player_result to use metrix_competition.id instead of metrix_competition_id
+-- Add new column metrix_competition_id (references metrix_competition.id)
+ALTER TABLE metrix_player_result ADD COLUMN metrix_competition_id bigint;
+
+-- Fill the new column with data from metrix_competition table
+UPDATE metrix_player_result mpr
+SET metrix_competition_id = mc.id
+FROM metrix_competition mc
+WHERE mc.metrix_competition_id = mpr.competition_id;
+
+-- Drop old unique constraint and index
+ALTER TABLE metrix_player_result DROP CONSTRAINT IF EXISTS metrix_player_result_competition_id_user_id_key;
+DROP INDEX IF EXISTS metrix_player_result_competition_user_idx;
+
+-- Drop old competition_id column
+ALTER TABLE metrix_player_result DROP COLUMN competition_id;
+
+-- Make new column NOT NULL
+ALTER TABLE metrix_player_result ALTER COLUMN metrix_competition_id SET NOT NULL;
+
+-- Add foreign key constraint
+ALTER TABLE metrix_player_result ADD CONSTRAINT metrix_player_result_metrix_competition_id_fk
+  FOREIGN KEY (metrix_competition_id) REFERENCES metrix_competition(id);
+
+-- Add new unique constraint and index
+ALTER TABLE metrix_player_result ADD CONSTRAINT metrix_player_result_competition_user_unique
+  UNIQUE (metrix_competition_id, user_id);
+CREATE INDEX metrix_player_result_competition_user_idx ON metrix_player_result (metrix_competition_id, user_id);
