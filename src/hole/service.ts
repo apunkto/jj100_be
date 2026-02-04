@@ -241,14 +241,15 @@ export const getCtpHoles = async (env: Env, competitionId: number) => {
     return {data: enriched, error: null};
 };
 
-export const getTopRankedHoles = async (env: Env) => {
+export const getTopRankedHoles = async (env: Env, competitionId: number | null = null) => {
     const supabase = getSupabaseClient(env)
 
-    const {data, error} = await supabase
-        .from('hole')
-        .select('*')
-        .order('rank', {ascending: true})
-        .limit(10)
+    let query = supabase.from('hole').select('*').order('rank', {ascending: true}).limit(10)
+    if (competitionId != null && Number.isFinite(competitionId)) {
+        query = query.eq('metrix_competition_id', competitionId)
+    }
+
+    const {data, error} = await query
 
     if (error || !data) {
         return {
@@ -263,18 +264,20 @@ export const getTopRankedHoles = async (env: Env) => {
     }
 }
 
-export const getHoles = async (env: Env) => {
+export const getHoles = async (env: Env, competitionId: number | null = null) => {
     const supabase = getSupabaseClient(env)
 
-    const {data, error} = await supabase
-        .from('hole')
-        .select('*')
-        .order('number', {ascending: true})
+    let query = supabase.from('hole').select('*').order('number', {ascending: true})
+    if (competitionId != null && Number.isFinite(competitionId)) {
+        query = query.eq('metrix_competition_id', competitionId)
+    }
+
+    const {data, error} = await query
 
     if (error || !data) {
         return {
             data: [],
-            error: error ?? {message: 'Failed to fetch holes', code: 'rank_fetch_error'}
+            error: error ?? {message: 'Failed to fetch holes', code: 'hole_fetch_error'}
         }
     }
 

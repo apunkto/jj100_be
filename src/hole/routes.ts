@@ -102,7 +102,13 @@ router.get('/holes/count', async (c) => {
 })
 
 router.get('/holes/top-ranked', async (c) => {
-    const {data, error} = await getTopRankedHoles(c.env)
+    const user = c.get('user')
+    const competitionIdParam = c.req.query('competitionId')
+    const competitionId = competitionIdParam != null && competitionIdParam !== ''
+        ? Number(competitionIdParam)
+        : user.activeCompetitionId
+
+    const {data, error} = await getTopRankedHoles(c.env, competitionId)
 
     if (error) {
         return c.json({error}, 500)
@@ -112,7 +118,13 @@ router.get('/holes/top-ranked', async (c) => {
 })
 
 router.get('/holes', async (c) => {
-    const {data, error} = await getHoles(c.env)
+    const user = c.get('user')
+    const competitionIdParam = c.req.query('competitionId')
+    const competitionId = competitionIdParam != null && competitionIdParam !== ''
+        ? Number(competitionIdParam)
+        : user.activeCompetitionId
+
+    const {data, error} = await getHoles(c.env, competitionId)
 
     if (error) {
         return c.json({error}, 500)

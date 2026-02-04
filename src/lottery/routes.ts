@@ -9,6 +9,7 @@ import {
     getCheckedInPlayers,
     getMyCheckin
 } from './service'
+import {requireAdmin} from '../middleware/admin'
 
 type HonoVars = { user: PlayerIdentity }
 const router = new Hono<{ Bindings: Env; Variables: HonoVars }>()
@@ -72,6 +73,7 @@ router.delete("/checkin/me", async (c) => {
     return c.json({success: true})
 })
 
+router.use('/checkins', requireAdmin)
 router.get('/checkins', async (c) => {
     const user = c.get('user')
     if (user.activeCompetitionId == null) return c.json({ error: 'No active competition' }, 400)
@@ -85,6 +87,7 @@ router.get('/checkins', async (c) => {
     return c.json({success: true, data})
 })
 
+router.use('/draw', requireAdmin)
 router.post('/draw', async (c) => {
     const user = c.get('user')
     if (user.activeCompetitionId == null) return c.json({ error: 'No active competition' }, 400)
@@ -100,6 +103,8 @@ router.post('/draw', async (c) => {
     return c.json(data)
 })
 
+
+router.use('/checkin/final', requireAdmin)
 router.post('/checkin/final/:checkinId', async (c) => {
     const user = c.get('user')
     if (user.activeCompetitionId == null) return c.json({ error: 'No active competition' }, 400)
@@ -115,6 +120,8 @@ router.post('/checkin/final/:checkinId', async (c) => {
     return c.json({success: true})
 })
 
+
+router.use('/checkin', requireAdmin)
 router.delete('/checkin/:checkinId', async (c) => {
     const checkinId = Number(c.req.param('checkinId'))
 

@@ -2,10 +2,45 @@ import {Hono} from 'hono'
 import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
 import {fetchMetrixIdentityByEmail, getCurrentHole} from './service'
-import {getMetrixPlayerStats} from './statsService'
+import {getCompetitionStats, getMetrixPlayerStats, getTopPlayersByDivision} from './statsService'
+import {getUserCompetitions} from '../player/service'
 
 type HonoVars = { user: PlayerIdentity }
 const router = new Hono<{ Bindings: Env; Variables: HonoVars }>()
+
+router.get('/competition/:id/top-players-by-division', async (c) => {
+    const competitionId = Number(c.req.param('id'))
+    if (!Number.isFinite(competitionId)) {
+        return c.json({ success: false, error: 'Invalid competition ID' }, 400)
+    }
+
+    const user = c.get('user')
+    const list = await getUserCompetitions(c.env, user.metrixUserId)
+    if (!list.some((x) => x.id === competitionId)) {
+        return c.json({ success: false, error: 'Competition not available for this user' }, 403)
+    }
+
+    const { data, error } = await getTopPlayersByDivision(c.env, competitionId)
+    if (error) return c.json({ success: false, error }, 500)
+    return c.json({ success: true, data: data ?? { topPlayersByDivision: {} } })
+})
+
+router.get('/competition/:id/stats', async (c) => {
+    const competitionId = Number(c.req.param('id'))
+    if (!Number.isFinite(competitionId)) {
+        return c.json({ success: false, error: 'Invalid competition ID' }, 400)
+    }
+
+    const user = c.get('user')
+    const list = await getUserCompetitions(c.env, user.metrixUserId)
+    if (!list.some((x) => x.id === competitionId)) {
+        return c.json({ success: false, error: 'Competition not available for this user' }, 403)
+    }
+
+    const { data, error } = await getCompetitionStats(c.env, competitionId)
+    if (error) return c.json({ success: false, error }, 500)
+    return c.json({ success: true, data: data ?? { playerCount: 0, mostHolesLeft: 0, finishedPlayersCount: 0, totalThrows: 0, averageDiff: 0, lakeOBCount: 0, lakePlayersCount: 0, totalHoles: 0, longestStreaks: [], longestAces: [] } })
+})
 
 router.post('/check-email', async (c) => {
     const body = await c.req.json<{ email?: string }>()

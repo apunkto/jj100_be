@@ -3,6 +3,7 @@ import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
 import {updateHoleStatsFromMetrix} from '../metrix/service'
 import {getSupabaseClient} from '../shared/supabase'
+import {requireAdmin} from '../middleware/admin'
 
 type HonoVars = { user: PlayerIdentity }
 const router = new Hono<{ Bindings: Env; Variables: HonoVars }>()
@@ -64,5 +65,82 @@ router.get('/run-metrix', async (c) => {
     }
     return c.json({ success: true, results, durationMs: duration });
 });
+
+// Admin-only routes for competition management
+router.use('/competitions', requireAdmin)
+router.get('/competitions', async (c) => {
+    const supabase = getSupabaseClient(c.env)
+    const { data, error } = await supabase
+        .from('metrix_competition')
+        .select('id, name, competition_date, status, ctp_enabled, checkin_enabled')
+        .order('competition_date', { ascending: true, nullsFirst: false })
+
+    if (error) {
+        return c.json({ success: false, error: error.message }, 500)
+    }
+
+    return c.json({ success: true, data: data ?? [] })
+})
+
+router.use('/competition/:id', requireAdmin)
+router.patch('/competition/:id/ctp', async (c) => {
+    const competitionId = Number(c.req.param('id'))
+    if (!Number.isFinite(competitionId)) {
+        return c.json({ success: false, error: 'Invalid competition ID' }, 400)
+    }
+
+    const body = await c.req.json().catch(() => ({}))
+    if (typeof body.enabled !== 'boolean') {
+        return c.json({ success: false, error: 'Missing or invalid enabled field' }, 400)
+    }
+
+    const supabase = getSupabaseClient(c.env)
+    const { data, error } = await supabase
+        .from('metrix_competition')
+        .update({ ctp_enabled: body.enabled })
+        .eq('id', competitionId)
+        .select('id, ctp_enabled')
+        .maybeSingle()
+
+    if (error) {
+        return c.json({ success: false, error: error.message }, 500)
+    }
+
+    if (!data) {
+        return c.json({ success: false, error: 'Competition not found' }, 404)
+    }
+
+    return c.json({ success: true, data })
+})
+
+router.patch('/competition/:id/checkin', async (c) => {
+    const competitionId = Number(c.req.param('id'))
+    if (!Number.isFinite(competitionId)) {
+        return c.json({ success: false, error: 'Invalid competition ID' }, 400)
+    }
+
+    const body = await c.req.json().catch(() => ({}))
+    if (typeof body.enabled !== 'boolean') {
+        return c.json({ success: false, error: 'Missing or invalid enabled field' }, 400)
+    }
+
+    const supabase = getSupabaseClient(c.env)
+    const { data, error } = await supabase
+        .from('metrix_competition')
+        .update({ checkin_enabled: body.enabled })
+        .eq('id', competitionId)
+        .select('id, checkin_enabled')
+        .maybeSingle()
+
+    if (error) {
+        return c.json({ success: false, error: error.message }, 500)
+    }
+
+    if (!data) {
+        return c.json({ success: false, error: 'Competition not found' }, 404)
+    }
+
+    return c.json({ success: true, data })
+})
 
 export default router
