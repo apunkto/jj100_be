@@ -296,3 +296,6 @@ ALTER TABLE metrix_player_result ADD CONSTRAINT metrix_player_result_metrix_comp
 ALTER TABLE metrix_player_result ADD CONSTRAINT metrix_player_result_competition_user_unique
   UNIQUE (metrix_competition_id, user_id);
 CREATE INDEX metrix_player_result_competition_user_idx ON metrix_player_result (metrix_competition_id, user_id);
+
+-- 2025-02-04: Add is_admin column to player table
+ALTER TABLE player ADD COLUMN is_admin boolean NOT NULL DEFAULT false;

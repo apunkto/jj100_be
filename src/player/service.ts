@@ -82,7 +82,7 @@ export async function resolvePlayerIdentity(env: Env, email: string): Promise<Pl
 
     const existing = await supabase
         .from('player')
-        .select('id, email, metrix_user_id, name, active_competition_id')
+        .select('id, email, metrix_user_id, name, active_competition_id, is_admin')
         .eq('email', normalizedEmail)
         .maybeSingle()
 
@@ -111,6 +111,7 @@ export async function resolvePlayerIdentity(env: Env, email: string): Promise<Pl
         metrixUserId: existing.data.metrix_user_id,
         name: existing.data.name,
         activeCompetitionId,
+        isAdmin: existing.data.is_admin ?? false,
     }
 }
 
