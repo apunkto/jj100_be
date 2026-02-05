@@ -12,4 +12,4 @@ CURRENT_COMPETITION_ID = "3527246"
 enabled = true
 
 [triggers]
-crons = ["*/2 * * * *"]
+crons = ["0 * * * *"]
