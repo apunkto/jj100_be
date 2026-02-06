@@ -221,11 +221,10 @@ export async function runPredictionPrecompute(
 ): Promise<{error?: string; results: Array<{competitionId: number; success: boolean; error?: string; predictionsProcessed?: number}>}> {
     const supabase = getSupabaseClient(env)
 
-    // Fetch all competitions where prediction_enabled = true and status IN ('started', 'waiting')
+    // Fetch all competitions where status IN ('started', 'waiting')
     const {data: competitions, error: fetchErr} = await supabase
         .from('metrix_competition')
         .select('id')
-        .eq('prediction_enabled', true)
         .in('status', ['started', 'waiting'])
 
     if (fetchErr) {
