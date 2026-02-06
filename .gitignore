@@ -2002,3 +2002,4 @@
 /db/import/
 /.idea/
 /.wrangler/
+/node_modules/
