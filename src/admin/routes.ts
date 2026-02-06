@@ -72,7 +72,7 @@ router.get('/competitions', async (c) => {
     const supabase = getSupabaseClient(c.env)
     const { data, error } = await supabase
         .from('metrix_competition')
-        .select('id, name, competition_date, status, ctp_enabled, checkin_enabled')
+        .select('id, name, competition_date, status, ctp_enabled, checkin_enabled, prediction_enabled')
         .order('competition_date', { ascending: true, nullsFirst: false })
 
     if (error) {
@@ -130,6 +130,36 @@ router.patch('/competition/:id/checkin', async (c) => {
         .update({ checkin_enabled: body.enabled })
         .eq('id', competitionId)
         .select('id, checkin_enabled')
+        .maybeSingle()
+
+    if (error) {
+        return c.json({ success: false, error: error.message }, 500)
+    }
+
+    if (!data) {
+        return c.json({ success: false, error: 'Competition not found' }, 404)
+    }
+
+    return c.json({ success: true, data })
+})
+
+router.patch('/competition/:id/prediction', async (c) => {
+    const competitionId = Number(c.req.param('id'))
+    if (!Number.isFinite(competitionId)) {
+        return c.json({ success: false, error: 'Invalid competition ID' }, 400)
+    }
+
+    const body = await c.req.json().catch(() => ({}))
+    if (typeof body.enabled !== 'boolean') {
+        return c.json({ success: false, error: 'Missing or invalid enabled field' }, 400)
+    }
+
+    const supabase = getSupabaseClient(c.env)
+    const { data, error } = await supabase
+        .from('metrix_competition')
+        .update({ prediction_enabled: body.enabled })
+        .eq('id', competitionId)
+        .select('id, prediction_enabled')
         .maybeSingle()
 
     if (error) {

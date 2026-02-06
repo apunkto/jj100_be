@@ -299,3 +299,25 @@ CREATE INDEX metrix_player_result_competition_user_idx ON metrix_player_result (
 
 -- 2025-02-04: Add is_admin column to player table
 ALTER TABLE player ADD COLUMN is_admin boolean NOT NULL DEFAULT false;
+
+-- 2025-02-06: Add prediction_enabled flag to metrix_competition
+alter table metrix_competition
+    add column prediction_enabled boolean NOT NULL DEFAULT false;
+
+-- 2025-02-06: Create predictions table
+create table predictions
+(
+    id                    bigserial   NOT NULL PRIMARY KEY,
+    metrix_competition_id bigint      NOT NULL REFERENCES metrix_competition(id),
+    player_id             bigint      NOT NULL REFERENCES player(id),
+    best_overall_score    int,
+    best_female_score     int,
+    will_rain             boolean,
+    player_own_score      int,
+    hole_in_ones_count   int,
+    water_discs_count    int,
+    created_date          timestamptz NOT NULL DEFAULT now(),
+    updated_date          timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (metrix_competition_id, player_id)
+);
+create index predictions_competition_id_idx on predictions (metrix_competition_id);

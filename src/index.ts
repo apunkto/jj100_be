@@ -12,6 +12,7 @@ import metrixRoutes from './metrix/routes'
 import competitionRoutes from './competition/routes'
 import feedbackRoutes from './feedback/routes'
 import adminRoutes, {runMetrixSync} from './admin/routes'
+import predictionRoutes from './prediction/routes'
 import type {Env} from './shared/types'
 
 const PUBLIC_PATHS = [
@@ -60,6 +61,7 @@ app.route('/metrix', metrixRoutes)
 app.route('/', competitionRoutes)
 app.route('/feedback', feedbackRoutes)
 app.route('/admin', adminRoutes)
+app.route('/prediction', predictionRoutes)
 
 // Mount /me at root level (not under /player prefix)
 app.get('/me', async (c) => {
