@@ -321,3 +321,62 @@ create table predictions
     UNIQUE (metrix_competition_id, player_id)
 );
 create index predictions_competition_id_idx on predictions (metrix_competition_id);
+
+-- 2025-02-06: Add indexes for prediction scoring queries on metrix_player_result
+-- Index for best_overall_score query (metrix_competition_id, dnf, diff)
+create index if not exists metrix_player_result_competition_dnf_diff_idx 
+    on metrix_player_result (metrix_competition_id, dnf, diff) 
+    where dnf = false and diff is not null;
+
+-- Index for best_female_score query (metrix_competition_id, class_name, dnf, diff)
+create index if not exists metrix_player_result_competition_class_dnf_diff_idx 
+    on metrix_player_result (metrix_competition_id, class_name, dnf, diff) 
+    where dnf = false and diff is not null;
+
+-- 2025-02-06: Add precomputed prediction results tables for fast reads
+-- Table for shared actual results per competition
+create table prediction_actual_results (
+    metrix_competition_id bigint NOT NULL PRIMARY KEY REFERENCES metrix_competition(id),
+    best_overall_score int,
+    best_female_score int,
+    will_rain boolean,
+    hole_in_ones_count int,
+    water_discs_count int,
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+create index prediction_actual_results_updated_at_idx on prediction_actual_results(updated_at);
+
+-- Table for precomputed scores per prediction
+create table prediction_scores (
+    id bigserial NOT NULL PRIMARY KEY,
+    metrix_competition_id bigint NOT NULL REFERENCES metrix_competition(id),
+    player_id bigint NOT NULL REFERENCES player(id),
+    -- Actual results (denormalized for this player)
+    player_own_score int,
+    -- Precomputed field scores
+    best_overall_score_points int NOT NULL DEFAULT 0,
+    best_female_score_points int NOT NULL DEFAULT 0,
+    player_own_score_points int NOT NULL DEFAULT 0,
+    will_rain_points int NOT NULL DEFAULT 0,
+    hole_in_ones_count_points int NOT NULL DEFAULT 0,
+    water_discs_count_points int NOT NULL DEFAULT 0,
+    -- Total score and rank
+    total_score int NOT NULL DEFAULT 0,
+    rank int,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (metrix_competition_id, player_id)
+);
+create index prediction_scores_competition_score_idx on prediction_scores(metrix_competition_id, total_score DESC);
+create index prediction_scores_competition_player_idx on prediction_scores(metrix_competition_id, player_id);
+
+-- 2025-02-06: Add HIO and water throwers tracking to hole table
+alter table hole add column hio_count integer NOT NULL DEFAULT 0;
+alter table hole add column is_water_hole boolean NOT NULL DEFAULT false;
+alter table hole add column players_with_pen integer NOT NULL DEFAULT 0;
+
+-- 2025-02-06: Add water_holes_with_pen to metrix_player_result for precomputed water throwers count
+alter table metrix_player_result add column water_holes_with_pen integer NOT NULL DEFAULT 0;
+
+-- 2025-02-06: Add did_rain flag to metrix_competition
+alter table metrix_competition
+    add column did_rain boolean NOT NULL DEFAULT false;

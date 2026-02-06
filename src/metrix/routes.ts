@@ -4,6 +4,34 @@ import type {PlayerIdentity} from '../player/types'
 import {fetchMetrixIdentityByEmail, getCurrentHole} from './service'
 import {getCompetitionStats, getMetrixPlayerStats, getTopPlayersByDivision} from './statsService'
 import {getUserCompetitions} from '../player/service'
+import {getSupabaseClient} from '../shared/supabase'
+
+async function verifyCompetitionAccess(env: Env, user: PlayerIdentity, competitionId: number): Promise<{ success: false; error: string; status: number } | { success: true }> {
+    const supabase = getSupabaseClient(env)
+    
+    // For admins: verify competition exists in database
+    // For regular users: verify competition is in their available list
+    if (user.isAdmin) {
+        const { data, error: checkError } = await supabase
+            .from('metrix_competition')
+            .select('id')
+            .eq('id', competitionId)
+            .maybeSingle()
+        if (checkError) {
+            return { success: false, error: checkError.message, status: 500 }
+        }
+        if (!data) {
+            return { success: false, error: 'Competition not found', status: 404 }
+        }
+        return { success: true }
+    } else {
+        const list = await getUserCompetitions(env, user.metrixUserId)
+        if (!list.some((x) => x.id === competitionId)) {
+            return { success: false, error: 'Competition not available for this user', status: 403 }
+        }
+        return { success: true }
+    }
+}
 
 type HonoVars = { user: PlayerIdentity }
 const router = new Hono<{ Bindings: Env; Variables: HonoVars }>()
@@ -15,9 +43,15 @@ router.get('/competition/:id/top-players-by-division', async (c) => {
     }
 
     const user = c.get('user')
-    const list = await getUserCompetitions(c.env, user.metrixUserId)
-    if (!list.some((x) => x.id === competitionId)) {
-        return c.json({ success: false, error: 'Competition not available for this user' }, 403)
+    const accessCheck = await verifyCompetitionAccess(c.env, user, competitionId)
+    if (!accessCheck.success) {
+        if (accessCheck.status === 403) {
+            return c.json({ success: false, error: accessCheck.error }, 403)
+        } else if (accessCheck.status === 404) {
+            return c.json({ success: false, error: accessCheck.error }, 404)
+        } else {
+            return c.json({ success: false, error: accessCheck.error }, 500)
+        }
     }
 
     const { data, error } = await getTopPlayersByDivision(c.env, competitionId)
@@ -32,9 +66,15 @@ router.get('/competition/:id/stats', async (c) => {
     }
 
     const user = c.get('user')
-    const list = await getUserCompetitions(c.env, user.metrixUserId)
-    if (!list.some((x) => x.id === competitionId)) {
-        return c.json({ success: false, error: 'Competition not available for this user' }, 403)
+    const accessCheck = await verifyCompetitionAccess(c.env, user, competitionId)
+    if (!accessCheck.success) {
+        if (accessCheck.status === 403) {
+            return c.json({ success: false, error: accessCheck.error }, 403)
+        } else if (accessCheck.status === 404) {
+            return c.json({ success: false, error: accessCheck.error }, 404)
+        } else {
+            return c.json({ success: false, error: accessCheck.error }, 500)
+        }
     }
 
     const { data, error } = await getCompetitionStats(c.env, competitionId)

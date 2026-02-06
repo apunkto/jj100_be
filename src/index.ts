@@ -13,6 +13,7 @@ import competitionRoutes from './competition/routes'
 import feedbackRoutes from './feedback/routes'
 import adminRoutes, {runMetrixSync} from './admin/routes'
 import predictionRoutes from './prediction/routes'
+import {runPredictionPrecompute} from './prediction/precompute'
 import type {Env} from './shared/types'
 
 const PUBLIC_PATHS = [
@@ -20,6 +21,7 @@ const PUBLIC_PATHS = [
     /^\/auth\/pre-login$/,
     /^\/auth\/register-from-metrix$/,
     /^\/admin\/run-metrix$/,
+    /^\/admin\/run-prediction-precompute$/,
 ]
 
 // Re-export Env type for backward compatibility
@@ -78,13 +80,40 @@ export default {
 
     scheduled: async (event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
         const start = Date.now();
-        console.log("Scheduled task started at", new Date(event.scheduledTime).toISOString());
-        const { error, results } = await runMetrixSync(env);
-        if (error) {
-            console.error("Metrix scheduler: failed to load competitions", error);
-            return;
+        const cronSchedule = event.cron || 'unknown';
+        console.log(`Scheduled task started at ${new Date(event.scheduledTime).toISOString()}, cron: ${cronSchedule}`);
+        
+        switch (cronSchedule) {
+            case '0 * * * *':
+                // Run Metrix sync every hour
+                const metrixStart = Date.now();
+                const { error: metrixError, results: metrixResults } = await runMetrixSync(env);
+                if (metrixError) {
+                    console.error("Metrix scheduler: failed to load competitions", metrixError);
+                } else {
+                    const metrixDuration = Date.now() - metrixStart;
+                    console.log(`Metrix sync completed in ${metrixDuration}ms, synced ${metrixResults.length} competition(s)`);
+                }
+                break;
+                
+            case '*/5 * * * *':
+                // Run prediction precomputation every 5 minutes
+                const predictionStart = Date.now();
+                const { error: predictionError, results: predictionResults } = await runPredictionPrecompute(env);
+                if (predictionError) {
+                    console.error("Prediction precompute: failed to load competitions", predictionError);
+                } else {
+                    const predictionDuration = Date.now() - predictionStart;
+                    const successful = predictionResults.filter(r => r.success).length;
+                    console.log(`Prediction precompute completed in ${predictionDuration}ms, processed ${successful}/${predictionResults.length} competition(s)`);
+                }
+                break;
+                
+            default:
+                console.warn(`Unknown cron schedule: ${cronSchedule}`);
         }
-        const duration = Date.now() - start;
-        console.log(`Scheduled task completed in ${duration}ms, synced ${results.length} competition(s)`);
+        
+        const totalDuration = Date.now() - start;
+        console.log(`Scheduled task completed in ${totalDuration}ms`);
     }
 }

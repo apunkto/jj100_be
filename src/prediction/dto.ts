@@ -36,6 +36,7 @@ export type PredictionWithResults = Prediction & {
 
 export type PredictionLeaderboardEntry = {
     player_name: string
+    player_id?: number
     score: number
     rank: number
 }

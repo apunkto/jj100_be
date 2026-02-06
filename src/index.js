@@ -177,11 +177,28 @@ app.patch('/player/active-competition', (c) => __awaiter(void 0, void 0, void 0,
     if (activeCompetitionId == null || !Number.isFinite(activeCompetitionId)) {
         return c.json({ success: false, error: 'Invalid activeCompetitionId' }, 400);
     }
-    const list = yield (0, playerService_1.getUserCompetitions)(c.env, user.metrixUserId);
-    if (!list.some((x) => x.id === activeCompetitionId)) {
-        return c.json({ success: false, error: 'Competition not available for this user' }, 400);
-    }
     const supabase = (0, supabase_1.getSupabaseClient)(c.env);
+    // For admins: verify competition exists in database
+    // For regular users: verify competition is in their available list
+    if (user.isAdmin) {
+        const { data, error: checkError } = yield supabase
+            .from('metrix_competition')
+            .select('id')
+            .eq('id', activeCompetitionId)
+            .maybeSingle();
+        if (checkError) {
+            return c.json({ success: false, error: checkError.message }, 500);
+        }
+        if (!data) {
+            return c.json({ success: false, error: 'Competition not found' }, 404);
+        }
+    }
+    else {
+        const list = yield (0, playerService_1.getUserCompetitions)(c.env, user.metrixUserId);
+        if (!list.some((x) => x.id === activeCompetitionId)) {
+            return c.json({ success: false, error: 'Competition not available for this user' }, 400);
+        }
+    }
     const { error } = yield supabase
         .from('player')
         .update({ active_competition_id: activeCompetitionId })

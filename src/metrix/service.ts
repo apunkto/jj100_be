@@ -101,6 +101,8 @@ export const updateHoleStatsFromMetrix = async (env: Env, metrixCompetitionId: n
         sumDiff: number;
         diffCount: number;
         obPlayerCount: number; // players who had at least one OB (PEN non-zero) on this hole
+        hioCount: number; // count of hole-in-ones (Result === "1")
+        playersWithPen: Set<string>; // unique players who had PEN > 0 on this hole
     }> = {};
     let competitionId: number | null = null;
 
@@ -146,24 +148,49 @@ export const updateHoleStatsFromMetrix = async (env: Env, metrixCompetitionId: n
         const players = (comp.Results || []).filter((p) => p.UserID != null && p.UserID !== '');
         console.log('players size', players.length);
 
+        // Get water hole numbers for this competition (for calculating water_holes_with_pen)
+        const {data: waterHoles} = await supabase
+            .from('hole')
+            .select('number')
+            .eq('metrix_competition_id', competitionId)
+            .eq('is_water_hole', true)
+        const waterHoleNumbers = new Set(waterHoles?.map(h => h.number) || [])
 
         const now = new Date().toISOString();
-        const playerRows = players.map((p) => ({
-            metrix_competition_id: competitionId,
-            user_id: String(p.UserID),
-            name: p.Name ?? null,
-            class_name: p.ClassName ?? null,
-            order_number: p.OrderNumber ?? null,
-            diff: p.Diff ?? null,
-            sum: p.Sum ?? null,
-            dnf: Boolean(p.Dnf),
-            start_group: (() => {
-                const g = parseInt(p.Group, 10);
-                return Number.isFinite(g) ? g : null;
-            })(),
-            player_results: p.PlayerResults ?? null,
-            updated_date: now,
-        }));
+        const playerRows = players.map((p) => {
+            const holes = p.PlayerResults || []
+            let waterHolesWithPen = 0
+
+            // Count water holes where this player had PEN > 0
+            for (let i = 0; i < holes.length; i++) {
+                const holeNumber = i + 1 // Convert to 1-based hole number
+                if (waterHoleNumbers.has(holeNumber)) {
+                    const pen = holes[i]?.PEN
+                    const hasOb = pen != null && String(pen).trim() !== '' && String(pen).trim() !== '0'
+                    if (hasOb) {
+                        waterHolesWithPen++
+                    }
+                }
+            }
+
+            return {
+                metrix_competition_id: competitionId,
+                user_id: String(p.UserID),
+                name: p.Name ?? null,
+                class_name: p.ClassName ?? null,
+                order_number: p.OrderNumber ?? null,
+                diff: p.Diff ?? null,
+                sum: p.Sum ?? null,
+                dnf: Boolean(p.Dnf),
+                start_group: (() => {
+                    const g = parseInt(p.Group, 10);
+                    return Number.isFinite(g) ? g : null;
+                })(),
+                player_results: p.PlayerResults ?? null,
+                water_holes_with_pen: waterHolesWithPen,
+                updated_date: now,
+            }
+        });
 
         const {error: playerErr} = await supabase
             .from('metrix_player_result')
@@ -175,10 +202,12 @@ export const updateHoleStatsFromMetrix = async (env: Env, metrixCompetitionId: n
 
         for (const player of players) {
             const holes = player?.PlayerResults || [];
+            const userId = String(player.UserID);
             for (let i = 0; i < holes.length; i++) {
                 const holeIndex = i + 1;
                 const diff = holes[i]?.Diff;
                 const pen = holes[i]?.PEN;
+                const result = holes[i]?.Result;
 
                 if (!holeStats[holeIndex]) {
                     holeStats[holeIndex] = {
@@ -191,6 +220,8 @@ export const updateHoleStatsFromMetrix = async (env: Env, metrixCompetitionId: n
                         sumDiff: 0,
                         diffCount: 0,
                         obPlayerCount: 0,
+                        hioCount: 0,
+                        playersWithPen: new Set<string>(),
                     };
                 }
 
@@ -208,7 +239,18 @@ export const updateHoleStatsFromMetrix = async (env: Env, metrixCompetitionId: n
 
                 // PEN non-zero = player threw at least once into OB on this hole
                 const hasOb = pen != null && String(pen).trim() !== '' && String(pen).trim() !== '0';
-                if (hasOb) holeStats[holeIndex].obPlayerCount += 1;
+                if (hasOb) {
+                    holeStats[holeIndex].obPlayerCount += 1;
+                    holeStats[holeIndex].playersWithPen.add(userId);
+                }
+
+                // HIO detection: Result === "1" or Number(Result) === 1
+                if (result != null) {
+                    const resultStr = String(result).trim();
+                    if (resultStr === "1" || Number(resultStr) === 1) {
+                        holeStats[holeIndex].hioCount += 1;
+                    }
+                }
             }
         }
     }
@@ -254,6 +296,8 @@ export const updateHoleStatsFromMetrix = async (env: Env, metrixCompetitionId: n
                 average_diff,
                 rank: rankByHoleNumber[num] ?? 0,
                 ob_percent,
+                hio_count: stats.hioCount,
+                players_with_pen: stats.playersWithPen.size,
             };
             if (!existingNumbers.has(num)) {
                 row.card_img = 'no_image';

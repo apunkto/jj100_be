@@ -14,6 +14,7 @@ export type MetrixPlayerResultRow = {
     start_group: number | null;
     player_results: HoleResult[] | null;
     updated_date: string;
+    water_holes_with_pen: number;
 };
 
 export type PlayerStatsResponse = {
@@ -293,8 +294,6 @@ export const getCompetitionStats = async (
     let finishedPlayersCount = 0;
     let totalThrows = 0;
     let sumDiff = 0;
-    let lakePlayersCount = 0;
-    let lakeOBCount = 0;
 
     let bestStreakCount = 0;
     const longestStreaks: { count: number; player: string; startHole: number; endHole: number }[] = [];
@@ -364,19 +363,10 @@ export const getCompetitionStats = async (
                 }
             }
         });
-
-        const lakeHoles = results.slice(6, 17);
-        const playedAnyLake = lakeHoles.some((h) => h && !Array.isArray(h));
-        if (playedAnyLake) {
-            lakePlayersCount++;
-            const hadOB = lakeHoles.some((h) => {
-                const pen = parseInt(String((h as { PEN?: string })?.PEN ?? '0'), 10);
-                return pen > 0;
-            });
-            if (hadOB) lakeOBCount++;
-        }
     }
 
+    // Count players who threw OB in at least one water hole
+    const lakePlayersCount = players.filter(p => !p.dnf && (p.water_holes_with_pen ?? 0) > 0).length;
     const averageDiff = players.length > 0 ? sumDiff / players.length : 0;
 
     return {
@@ -386,7 +376,7 @@ export const getCompetitionStats = async (
             finishedPlayersCount,
             totalThrows,
             averageDiff,
-            lakeOBCount,
+            lakeOBCount: lakePlayersCount,
             lakePlayersCount,
             totalHoles,
             longestStreaks,

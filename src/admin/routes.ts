@@ -4,6 +4,7 @@ import type {PlayerIdentity} from '../player/types'
 import {updateHoleStatsFromMetrix} from '../metrix/service'
 import {getSupabaseClient} from '../shared/supabase'
 import {requireAdmin} from '../middleware/admin'
+import {runPredictionPrecompute} from '../prediction/precompute'
 
 type HonoVars = { user: PlayerIdentity }
 const router = new Hono<{ Bindings: Env; Variables: HonoVars }>()
@@ -66,13 +67,24 @@ router.get('/run-metrix', async (c) => {
     return c.json({ success: true, results, durationMs: duration });
 });
 
+router.get('/run-prediction-precompute', async (c) => {
+    const start = Date.now();
+    const { error, results } = await runPredictionPrecompute(c.env);
+    const duration = Date.now() - start;
+    if (error) {
+        console.error('[Prediction] Debug run: failed to load competitions', error);
+        return c.json({ success: false, error, durationMs: duration }, 500);
+    }
+    return c.json({ success: true, results, durationMs: duration });
+});
+
 // Admin-only routes for competition management
 router.use('/competitions', requireAdmin)
 router.get('/competitions', async (c) => {
     const supabase = getSupabaseClient(c.env)
     const { data, error } = await supabase
         .from('metrix_competition')
-        .select('id, name, competition_date, status, ctp_enabled, checkin_enabled, prediction_enabled')
+        .select('id, name, competition_date, status, ctp_enabled, checkin_enabled, prediction_enabled, did_rain')
         .order('competition_date', { ascending: true, nullsFirst: false })
 
     if (error) {
@@ -160,6 +172,36 @@ router.patch('/competition/:id/prediction', async (c) => {
         .update({ prediction_enabled: body.enabled })
         .eq('id', competitionId)
         .select('id, prediction_enabled')
+        .maybeSingle()
+
+    if (error) {
+        return c.json({ success: false, error: error.message }, 500)
+    }
+
+    if (!data) {
+        return c.json({ success: false, error: 'Competition not found' }, 404)
+    }
+
+    return c.json({ success: true, data })
+})
+
+router.patch('/competition/:id/did-rain', async (c) => {
+    const competitionId = Number(c.req.param('id'))
+    if (!Number.isFinite(competitionId)) {
+        return c.json({ success: false, error: 'Invalid competition ID' }, 400)
+    }
+
+    const body = await c.req.json().catch(() => ({}))
+    if (typeof body.enabled !== 'boolean') {
+        return c.json({ success: false, error: 'Missing or invalid enabled field' }, 400)
+    }
+
+    const supabase = getSupabaseClient(c.env)
+    const { data, error } = await supabase
+        .from('metrix_competition')
+        .update({ did_rain: body.enabled })
+        .eq('id', competitionId)
+        .select('id, did_rain')
         .maybeSingle()
 
     if (error) {
