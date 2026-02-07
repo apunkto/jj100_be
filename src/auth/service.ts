@@ -19,7 +19,7 @@ export async function verifySupabaseJwt(env: Env, authHeader?: string): Promise<
     })
 
     const sub = payload.sub
-    const email = (payload as any).email
+    const email = (payload as { email?: string }).email
 
     if (typeof sub !== 'string' || typeof email !== 'string') {
         throw new Error('Invalid token payload')

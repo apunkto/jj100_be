@@ -2,6 +2,82 @@ import {getSupabaseClient} from '../shared/supabase'
 import type {Env} from '../shared/types'
 import type {HoleResult} from "./service";
 
+type HoleResultEl = HoleResult | HoleResult[] | null
+
+/** Find longest birdie-or-better streaks across all players. */
+function findLongestBirdieStreaks(
+    players: Array<{ name: string | null; player_results?: HoleResultEl[] | null }>,
+    totalHoles: number
+): { count: number; entries: { count: number; player: string; startHole: number; endHole: number }[] } {
+    let bestStreakCount = 0
+    const longestStreaks: { count: number; player: string; startHole: number; endHole: number }[] = []
+
+    for (const p of players) {
+        const results = p.player_results ?? []
+        const holeCount = results.length
+        if (holeCount === 0) continue
+
+        for (let i = 0; i < holeCount; i++) {
+            let streak = 0
+            while (streak < holeCount) {
+                const idx = (i + streak) % holeCount
+                const hr = results[idx]
+                if (!hr || Array.isArray(hr)) break
+                const diff = (hr as HoleResult).Diff
+                if (diff == null || diff >= 0) break
+                streak++
+            }
+            if (streak > bestStreakCount) {
+                bestStreakCount = streak
+                longestStreaks.length = 0
+                longestStreaks.push({
+                    count: streak,
+                    player: p.name ?? '',
+                    startHole: (i % holeCount) + 1,
+                    endHole: ((i + streak - 1) % holeCount) + 1,
+                })
+            } else if (streak === bestStreakCount && streak > 0) {
+                longestStreaks.push({
+                    count: streak,
+                    player: p.name ?? '',
+                    startHole: (i % holeCount) + 1,
+                    endHole: ((i + streak - 1) % holeCount) + 1,
+                })
+            }
+        }
+    }
+    return { count: bestStreakCount, entries: longestStreaks }
+}
+
+/** Find longest ace (hole-in-one) by hole length. */
+function findLongestAces(
+    players: Array<{ name: string | null; player_results?: HoleResultEl[] | null }>,
+    holeMap: Record<number, number>
+): { player: string; holeNumber: number; length: number }[] {
+    let maxAceLength = 0
+    const longestAces: { player: string; holeNumber: number; length: number }[] = []
+
+    for (const p of players) {
+        const results = p.player_results ?? []
+        results.forEach((hr, idx) => {
+            if (!hr || Array.isArray(hr)) return
+            const resultNum = parseInt(String((hr as HoleResult).Result ?? ''), 10)
+            if (!isNaN(resultNum) && resultNum === 1) {
+                const holeNum = idx + 1
+                const length = holeMap[holeNum] ?? 0
+                if (length > maxAceLength) {
+                    maxAceLength = length
+                    longestAces.length = 0
+                    longestAces.push({ player: p.name ?? '', holeNumber: holeNum, length })
+                } else if (length === maxAceLength) {
+                    longestAces.push({ player: p.name ?? '', holeNumber: holeNum, length })
+                }
+            }
+        })
+    }
+    return longestAces
+}
+
 export type MetrixPlayerResultRow = {
     metrix_competition_id: number;
     user_id: string;
@@ -295,80 +371,39 @@ export const getCompetitionStats = async (
         holeMap[h.number] = h.length ?? 0;
     }
 
-    let mostHolesLeft = 0;
-    let finishedPlayersCount = 0;
-    let totalThrows = 0;
-    let sumDiff = 0;
-
-    let bestStreakCount = 0;
-    const longestStreaks: { count: number; player: string; startHole: number; endHole: number }[] = [];
-
-    let maxAceLength = 0;
-    const longestAces: { player: string; holeNumber: number; length: number }[] = [];
+    let mostHolesLeft = 0
+    let finishedPlayersCount = 0
+    let totalThrows = 0
+    let sumDiff = 0
+    const nonDnfPlayers: MetrixPlayerResultRow[] = []
 
     for (const p of players) {
-        totalThrows += p.sum ?? 0;
-        sumDiff += p.diff ?? 0;
+        totalThrows += p.sum ?? 0
+        sumDiff += p.diff ?? 0
 
         if (p.dnf) {
-            finishedPlayersCount++;
-            continue;
+            finishedPlayersCount++
+            continue
         }
 
-        const results = p.player_results ?? [];
-        const holeCount = results.length;
+        nonDnfPlayers.push(p)
+        const results = p.player_results ?? []
+        const holeCount = results.length
 
-        const played = results.filter((h) => h != null && !Array.isArray(h) && (h.Diff !== null && h.Diff !== undefined)).length;
-        const remaining = totalHoles - played;
-        if (remaining > mostHolesLeft) mostHolesLeft = remaining;
+        const played = results.filter(
+            (h) => h != null && !Array.isArray(h) && (h.Diff != null && h.Diff !== undefined)
+        ).length
+        const remaining = totalHoles - played
+        if (remaining > mostHolesLeft) mostHolesLeft = remaining
 
-        const allPlayed = holeCount > 0 && results.every((h) => !Array.isArray(h) || (Array.isArray(h) && h.length !== 0));
-        if (allPlayed) finishedPlayersCount++;
-
-        for (let i = 0; i < holeCount; i++) {
-            let streak = 0;
-            while (streak < holeCount) {
-                const idx = (i + streak) % holeCount;
-                const hr = results[idx];
-                if (!hr || Array.isArray(hr)) break;
-                if (hr.Diff >= 0) break;
-                streak++;
-            }
-            if (streak > bestStreakCount) {
-                bestStreakCount = streak;
-                longestStreaks.length = 0;
-                longestStreaks.push({
-                    count: streak,
-                    player: p.name ?? '',
-                    startHole: (i % holeCount) + 1,
-                    endHole: ((i + streak - 1) % holeCount) + 1,
-                });
-            } else if (streak === bestStreakCount && streak > 0) {
-                longestStreaks.push({
-                    count: streak,
-                    player: p.name ?? '',
-                    startHole: (i % holeCount) + 1,
-                    endHole: ((i + streak - 1) % holeCount) + 1,
-                });
-            }
-        }
-
-        results.forEach((hr, idx) => {
-            if (!hr || Array.isArray(hr)) return;
-            const resultNum = parseInt(String(hr.Result ?? ''), 10);
-            if (!isNaN(resultNum) && resultNum === 1) {
-                const holeNum = idx + 1;
-                const length = holeMap[holeNum] ?? 0;
-                if (length > maxAceLength) {
-                    maxAceLength = length;
-                    longestAces.length = 0;
-                    longestAces.push({ player: p.name ?? '', holeNumber: holeNum, length });
-                } else if (length === maxAceLength) {
-                    longestAces.push({ player: p.name ?? '', holeNumber: holeNum, length });
-                }
-            }
-        });
+        const allPlayed =
+            holeCount > 0 &&
+            results.every((h) => !Array.isArray(h) || (Array.isArray(h) && h.length !== 0))
+        if (allPlayed) finishedPlayersCount++
     }
+
+    const { entries: longestStreaks } = findLongestBirdieStreaks(nonDnfPlayers, totalHoles)
+    const longestAces = findLongestAces(nonDnfPlayers, holeMap)
 
     // Count players who threw OB in at least one water hole
     const lakePlayersCount = players.filter(p => !p.dnf && (p.water_holes_with_pen ?? 0) > 0).length;

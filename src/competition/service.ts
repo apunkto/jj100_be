@@ -1,7 +1,7 @@
 import {getSupabaseClient} from '../shared/supabase'
 import type {Env} from '../shared/types'
 
-export async function getConfigValue(env: Env, key: string): Promise<{ data: any | null; error: { message: string; code?: string } | null }> {
+export async function getConfigValue(env: Env, key: string): Promise<{ data: unknown | null; error: { message: string; code?: string } | null }> {
     const supabase = getSupabaseClient(env)
     const { data, error } = await supabase
         .from('config')

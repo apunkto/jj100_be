@@ -153,7 +153,8 @@ export async function getParticipationLeaderboard(env: Env): Promise<Participati
 
         if (error) throw new Error(error.message)
 
-        const chunk = (data ?? []).map((d: any) => ({
+        type LeaderboardRow = { metrix_user_id: number; player_name: string; participation_years: number }
+        const chunk = (data ?? []).map((d: LeaderboardRow) => ({
             metrixUserId: d.metrix_user_id,
             name: d.player_name,
             participationYears: d.participation_years,

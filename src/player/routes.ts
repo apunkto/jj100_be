@@ -3,6 +3,7 @@ import type {Env} from '../shared/types'
 import type {PlayerIdentity} from './types'
 import {getParticipationLeaderboard, getUserCompetitions, getUserParticipation, resolvePlayerIdentity} from './service'
 import {getSupabaseClient} from '../shared/supabase'
+import {verifyCompetitionAccess} from '../shared/competitionAccess'
 
 type HonoVars = { user: PlayerIdentity }
 const router = new Hono<{ Bindings: Env; Variables: HonoVars }>()
@@ -20,30 +21,14 @@ router.patch('/active-competition', async (c) => {
     if (activeCompetitionId == null || !Number.isFinite(activeCompetitionId)) {
         return c.json({ success: false, error: 'Invalid activeCompetitionId' }, 400)
     }
-    
-    const supabase = getSupabaseClient(c.env)
-    
-    // For admins: verify competition exists in database
-    // For regular users: verify competition is in their available list
-    if (user.isAdmin) {
-        const { data, error: checkError } = await supabase
-            .from('metrix_competition')
-            .select('id')
-            .eq('id', activeCompetitionId)
-            .maybeSingle()
-        if (checkError) {
-            return c.json({ success: false, error: checkError.message }, 500)
-        }
-        if (!data) {
-            return c.json({ success: false, error: 'Competition not found' }, 404)
-        }
-    } else {
-        const list = await getUserCompetitions(c.env, user.metrixUserId)
-        if (!list.some((x) => x.id === activeCompetitionId)) {
-            return c.json({ success: false, error: 'Competition not available for this user' }, 400)
-        }
+
+    const accessCheck = await verifyCompetitionAccess(c.env, user, activeCompetitionId)
+    if (!accessCheck.success) {
+        const status = (accessCheck.status === 403 ? 400 : accessCheck.status) as 400 | 404 | 500
+        return c.json({ success: false, error: accessCheck.error }, status)
     }
-    
+
+    const supabase = getSupabaseClient(c.env)
     const { error } = await supabase
         .from('player')
         .update({ active_competition_id: activeCompetitionId })

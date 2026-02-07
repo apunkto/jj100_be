@@ -2,18 +2,16 @@ import {Hono} from 'hono'
 import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
 import {submitFeedback} from './service'
+import {feedbackBodySchema, parseJsonBody} from '../shared/validation'
 
 type HonoVars = { user: PlayerIdentity }
 const router = new Hono<{ Bindings: Env; Variables: HonoVars }>()
 
 router.post('/', async (c) => {
-    const body = await c.req.json<{ score: number; feedback: string }>()
+    const parsed = await parseJsonBody(() => c.req.json(), feedbackBodySchema)
+    if (!parsed.success) return c.json({error: parsed.error}, 400)
 
-    const {score, feedback} = body
-
-    if (isNaN(score) || score < 1 || score > 5 || !feedback.trim()) {
-        return c.json({error: 'Invalid score or feedback'}, 400)
-    }
+    const {score, feedback} = parsed.data
 
     const {data, error} = await submitFeedback(c.env, score, feedback)
 

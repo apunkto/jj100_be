@@ -23,27 +23,31 @@ function calculateBooleanPredictionScore(
     return predicted === actual ? 15 : 0
 }
 
-// Get player's own score from metrix_player_result
-async function getPlayerOwnScore(
+/** Batch-fetch player diffs (metrix_user_id -> diff) for a competition. */
+async function getPlayerDiffsByMetrixUserId(
     env: Env,
     competitionId: number,
-    metrixUserId: number
-): Promise<number | null> {
+    metrixUserIds: number[]
+): Promise<Map<number, number | null>> {
+    if (metrixUserIds.length === 0) return new Map()
+
     const supabase = getSupabaseClient(env)
-    const userIdStr = String(metrixUserId)
-    
-    const {data: playerResult, error} = await supabase
+    const userIdStrs = [...new Set(metrixUserIds.map(String))]
+
+    const {data: rows, error} = await supabase
         .from('metrix_player_result')
-        .select('diff')
+        .select('user_id, diff')
         .eq('metrix_competition_id', competitionId)
-        .eq('user_id', userIdStr)
-        .maybeSingle()
+        .in('user_id', userIdStrs)
 
-    if (error || !playerResult) {
-        return null
+    if (error) return new Map()
+
+    const map = new Map<number, number | null>()
+    for (const row of rows ?? []) {
+        const id = parseInt(row.user_id, 10)
+        if (Number.isFinite(id)) map.set(id, row.diff ?? null)
     }
-
-    return playerResult.diff ?? null
+    return map
 }
 
 // Precompute prediction results for a single competition
@@ -109,6 +113,9 @@ export async function precomputePredictionResults(
             }
         }
 
+        const metrixUserIds = [...playerMap.values()].filter(Number.isFinite)
+        const diffByMetrixUserId = await getPlayerDiffsByMetrixUserId(env, competitionId, metrixUserIds)
+
         // 5. Calculate scores for each prediction
         const scoredPredictions: Array<{
             metrix_competition_id: number
@@ -125,13 +132,9 @@ export async function precomputePredictionResults(
 
         for (const prediction of predictions as Prediction[]) {
             const metrixUserId = playerMap.get(prediction.player_id)
-            if (!metrixUserId) {
-                // Skip if player not found
-                continue
-            }
+            if (!metrixUserId) continue
 
-            // Get player's own score
-            const playerOwnScore = await getPlayerOwnScore(env, competitionId, metrixUserId)
+            const playerOwnScore = diffByMetrixUserId.get(metrixUserId) ?? null
 
             // Calculate individual field scores
             const bestOverallScorePoints = calculatePredictionScore(

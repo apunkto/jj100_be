@@ -21,14 +21,15 @@ router.post('/checkin', async (c) => {
     try {
         await checkInPlayer(c.env, user.playerId, user.metrixUserId, user.activeCompetitionId)
         return c.json({success: true})
-    } catch (err: any) {
-        if (err.status === 409) {
+    } catch (err: unknown) {
+        const e = err as { status?: number; code?: string; message?: string }
+        if (e.status === 409) {
             return c.json({error: 'Player already checked in'}, 409)
         }
-        if (err.code === 'not_competition_participant') {
-            return c.json({error: err.message, code: err.code}, 403)
+        if (e.code === 'not_competition_participant') {
+            return c.json({error: e.message ?? 'Not a competition participant', code: e.code}, 403)
         }
-        return c.json({error: err.message || 'Internal Server Error'}, 500)
+        return c.json({error: e.message ?? 'Internal Server Error'}, 500)
     }
 })
 

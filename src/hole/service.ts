@@ -1,8 +1,11 @@
+import type {SupabaseClient} from '@supabase/supabase-js'
 import {Env} from "../shared/types"
 import {getSupabaseClient} from "../shared/supabase"
 import {isCompetitionParticipant} from "../metrix/statsService"
 
-const fetchHoleOnly = async (supabase: any, holeFilter: Record<string, any>) => {
+type HoleFilter = { metrix_competition_id?: number; number?: number; id?: number }
+
+const fetchHoleOnly = async (supabase: SupabaseClient, holeFilter: HoleFilter) => {
     const {data: holeData, error: holeError} = await supabase
         .from("hole")
         .select("*")
@@ -19,7 +22,7 @@ const fetchHoleOnly = async (supabase: any, holeFilter: Record<string, any>) => 
     return {data: {hole: holeData}, error: null}
 }
 
-const fetchHoleWithCtp = async (supabase: any, holeFilter: Record<string, any>) => {
+const fetchHoleWithCtp = async (supabase: SupabaseClient, holeFilter: HoleFilter) => {
     const result = await fetchHoleOnly(supabase, holeFilter)
     if (result.error || !result.data) return result
 

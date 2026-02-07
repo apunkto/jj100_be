@@ -2,8 +2,8 @@ import {Hono} from 'hono'
 import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
 import {getConfigValue} from './service'
-import {getUserCompetitions} from '../player/service'
 import {getSupabaseClient} from '../shared/supabase'
+import {verifyCompetitionAccess} from '../shared/competitionAccess'
 
 type HonoVars = { user: PlayerIdentity }
 const router = new Hono<{ Bindings: Env; Variables: HonoVars }>()
@@ -26,29 +26,15 @@ router.get('/competition/:id', async (c) => {
         return c.json({ success: false, error: 'Invalid competition ID' }, 400)
     }
 
-    const supabase = getSupabaseClient(c.env)
-    
-    // For admins: verify competition exists in database
-    // For regular users: verify competition is in their available list
-    if (user.isAdmin) {
-        const { data, error: checkError } = await supabase
-            .from('metrix_competition')
-            .select('id')
-            .eq('id', competitionId)
-            .maybeSingle()
-        if (checkError) {
-            return c.json({ success: false, error: checkError.message }, 500)
-        }
-        if (!data) {
-            return c.json({ success: false, error: 'Competition not found' }, 404)
-        }
-    } else {
-        const list = await getUserCompetitions(c.env, user.metrixUserId)
-        if (!list.some((x) => x.id === competitionId)) {
-            return c.json({ success: false, error: 'Competition not available for this user' }, 403)
-        }
+    const accessCheck = await verifyCompetitionAccess(c.env, user, competitionId)
+    if (!accessCheck.success) {
+        return c.json(
+            { success: false, error: accessCheck.error },
+            accessCheck.status as 400 | 403 | 404 | 500
+        )
     }
 
+    const supabase = getSupabaseClient(c.env)
     const { data, error } = await supabase
         .from('metrix_competition')
         .select('id, name, ctp_enabled, checkin_enabled, prediction_enabled')

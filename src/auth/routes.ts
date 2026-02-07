@@ -4,17 +4,15 @@ import type {PlayerIdentity} from '../player/types'
 import {checkPlayerExistsByEmail} from '../player/service'
 import {cacheMetrixIdentities, fetchMetrixIdentityByEmail, getCachedMetrixIdentities} from '../metrix/service'
 import {getSupabaseClient} from '../shared/supabase'
+import {authPreLoginSchema, authRegisterSchema, parseJsonBody} from '../shared/validation'
 
 type HonoVars = { user: PlayerIdentity }
 const router = new Hono<{ Bindings: Env; Variables: HonoVars }>()
 
 router.post('/pre-login', async (c) => {
-    const body = await c.req.json<{ email?: string }>()
-    const email = (body.email ?? '').trim().toLowerCase()
-
-    if (!email || !email.includes('@')) {
-        return c.json({success: false, error: 'Invalid email'}, 400)
-    }
+    const parsed = await parseJsonBody(() => c.req.json(), authPreLoginSchema)
+    if (!parsed.success) return c.json({success: false, error: parsed.error}, 400)
+    const email = parsed.data.email
 
     // Check if player exists in DB
     const inDb = await checkPlayerExistsByEmail(c.env, email)
@@ -31,17 +29,9 @@ router.post('/pre-login', async (c) => {
 })
 
 router.post('/register-from-metrix', async (c) => {
-    const body = await c.req.json<{ email?: string; metrixUserId?: number }>()
-    const email = (body.email ?? '').trim().toLowerCase()
-    const metrixUserId = body.metrixUserId
-
-    if (!email || !email.includes('@')) {
-        return c.json({success: false, error: 'Invalid email'}, 400)
-    }
-
-    if (!metrixUserId || !Number.isFinite(metrixUserId)) {
-        return c.json({success: false, error: 'Invalid metrixUserId'}, 400)
-    }
+    const parsed = await parseJsonBody(() => c.req.json(), authRegisterSchema)
+    if (!parsed.success) return c.json({success: false, error: parsed.error}, 400)
+    const {email, metrixUserId} = parsed.data
 
     // Try cache first
     let identities = await getCachedMetrixIdentities(email)

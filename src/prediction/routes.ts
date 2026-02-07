@@ -2,36 +2,10 @@ import {Hono} from 'hono'
 import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
 import {checkPredictionEnabled, createOrUpdatePrediction, getPredictionLeaderboard, getUserPrediction,} from './service'
-import {getUserCompetitions} from '../player/service'
 import {isCompetitionParticipant} from '../metrix/statsService'
 import {getSupabaseClient} from '../shared/supabase'
-
-async function verifyCompetitionAccess(env: Env, user: PlayerIdentity, competitionId: number): Promise<{ success: false; error: string; status: number } | { success: true }> {
-    const supabase = getSupabaseClient(env)
-    
-    // For admins: verify competition exists in database
-    // For regular users: verify competition is in their available list
-    if (user.isAdmin) {
-        const { data, error: checkError } = await supabase
-            .from('metrix_competition')
-            .select('id')
-            .eq('id', competitionId)
-            .maybeSingle()
-        if (checkError) {
-            return { success: false, error: checkError.message, status: 500 }
-        }
-        if (!data) {
-            return { success: false, error: 'Competition not found', status: 404 }
-        }
-        return { success: true }
-    } else {
-        const list = await getUserCompetitions(env, user.metrixUserId)
-        if (!list.some((x) => x.id === competitionId)) {
-            return { success: false, error: 'Competition not available for this user', status: 403 }
-        }
-        return { success: true }
-    }
-}
+import {verifyCompetitionAccess} from '../shared/competitionAccess'
+import {parseJsonBody, predictionBodySchema} from '../shared/validation'
 
 type HonoVars = { user: PlayerIdentity }
 const router = new Hono<{ Bindings: Env; Variables: HonoVars }>()
@@ -119,9 +93,10 @@ router.post('/:competitionId', async (c) => {
         return c.json({success: false, error: 'Prediction is not enabled for this competition'}, 403)
     }
 
-    const body = await c.req.json().catch(() => ({}))
+    const parsed = await parseJsonBody(() => c.req.json(), predictionBodySchema)
+    if (!parsed.success) return c.json({success: false, error: parsed.error}, 400)
 
-    const result = await createOrUpdatePrediction(c.env, competitionId, user.playerId, body)
+    const result = await createOrUpdatePrediction(c.env, competitionId, user.playerId, parsed.data)
 
     if (result.error) {
         return c.json({success: false, error: result.error.message}, 400)
@@ -169,9 +144,10 @@ router.patch('/:competitionId', async (c) => {
         return c.json({success: false, error: 'Prediction is not enabled for this competition'}, 403)
     }
 
-    const body = await c.req.json().catch(() => ({}))
+    const parsed = await parseJsonBody(() => c.req.json(), predictionBodySchema)
+    if (!parsed.success) return c.json({success: false, error: parsed.error}, 400)
 
-    const result = await createOrUpdatePrediction(c.env, competitionId, user.playerId, body)
+    const result = await createOrUpdatePrediction(c.env, competitionId, user.playerId, parsed.data)
 
     if (result.error) {
         return c.json({success: false, error: result.error.message}, 400)

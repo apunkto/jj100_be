@@ -59,23 +59,20 @@ export async function calculateActualResults(
         .not('diff', 'is', null)
 
     if (error) {
-        // Fallback to null values if query fails
-        // Try to get did_rain from competition even on error
+        // Query failed: return nulls for all derived data; try did_rain from competition
         const {data: competitionData} = await supabase
             .from('metrix_competition')
             .select('did_rain')
             .eq('id', competitionId)
             .maybeSingle()
-        
-        const will_rain = competitionData?.did_rain ?? false
-        
+
         return {
             best_overall_score: null,
             best_female_score: null,
-            will_rain,
+            will_rain: competitionData?.did_rain ?? false,
             player_own_score: null,
-            hole_in_ones_count: 2,
-            water_discs_count: 42,
+            hole_in_ones_count: null,
+            water_discs_count: null,
         }
     }
 

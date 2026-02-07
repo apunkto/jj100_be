@@ -1,3 +1,4 @@
+import type {Context} from 'hono'
 import {Hono} from 'hono'
 import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
@@ -5,6 +6,7 @@ import {updateHoleStatsFromMetrix} from '../metrix/service'
 import {getSupabaseClient} from '../shared/supabase'
 import {requireAdmin} from '../middleware/admin'
 import {runPredictionPrecompute} from '../prediction/precompute'
+import {adminDidRainSchema, adminEnabledSchema, adminStatusSchema, parseJsonBody} from '../shared/validation'
 
 type HonoVars = { user: PlayerIdentity }
 const router = new Hono<{ Bindings: Env; Variables: HonoVars }>()
@@ -94,139 +96,68 @@ router.get('/competitions', async (c) => {
     return c.json({ success: true, data: data ?? [] })
 })
 
+async function patchCompetitionFlag(
+    c: Context<{ Bindings: Env; Variables: HonoVars }>,
+    field: 'ctp_enabled' | 'checkin_enabled' | 'prediction_enabled' | 'did_rain'
+) {
+    const competitionId = Number(c.req.param('id'))
+    if (!Number.isFinite(competitionId)) {
+        return c.json({ success: false, error: 'Invalid competition ID' }, 400)
+    }
+
+    const parsed = await parseJsonBody(() => c.req.json(), adminEnabledSchema)
+    if (!parsed.success) return c.json({ success: false, error: parsed.error }, 400)
+
+    const supabase = getSupabaseClient(c.env)
+    const { data, error } = await supabase
+        .from('metrix_competition')
+        .update({ [field]: parsed.data.enabled })
+        .eq('id', competitionId)
+        .select(`id, ${field}`)
+        .maybeSingle()
+
+    if (error) return c.json({ success: false, error: error.message }, 500)
+    if (!data) return c.json({ success: false, error: 'Competition not found' }, 404)
+
+    return c.json({ success: true, data })
+}
+
 router.use('/competition/:id', requireAdmin)
-router.patch('/competition/:id/ctp', async (c) => {
-    const competitionId = Number(c.req.param('id'))
-    if (!Number.isFinite(competitionId)) {
-        return c.json({ success: false, error: 'Invalid competition ID' }, 400)
-    }
-
-    const body = await c.req.json().catch(() => ({}))
-    if (typeof body.enabled !== 'boolean') {
-        return c.json({ success: false, error: 'Missing or invalid enabled field' }, 400)
-    }
-
-    const supabase = getSupabaseClient(c.env)
-    const { data, error } = await supabase
-        .from('metrix_competition')
-        .update({ ctp_enabled: body.enabled })
-        .eq('id', competitionId)
-        .select('id, ctp_enabled')
-        .maybeSingle()
-
-    if (error) {
-        return c.json({ success: false, error: error.message }, 500)
-    }
-
-    if (!data) {
-        return c.json({ success: false, error: 'Competition not found' }, 404)
-    }
-
-    return c.json({ success: true, data })
-})
-
-router.patch('/competition/:id/checkin', async (c) => {
-    const competitionId = Number(c.req.param('id'))
-    if (!Number.isFinite(competitionId)) {
-        return c.json({ success: false, error: 'Invalid competition ID' }, 400)
-    }
-
-    const body = await c.req.json().catch(() => ({}))
-    if (typeof body.enabled !== 'boolean') {
-        return c.json({ success: false, error: 'Missing or invalid enabled field' }, 400)
-    }
-
-    const supabase = getSupabaseClient(c.env)
-    const { data, error } = await supabase
-        .from('metrix_competition')
-        .update({ checkin_enabled: body.enabled })
-        .eq('id', competitionId)
-        .select('id, checkin_enabled')
-        .maybeSingle()
-
-    if (error) {
-        return c.json({ success: false, error: error.message }, 500)
-    }
-
-    if (!data) {
-        return c.json({ success: false, error: 'Competition not found' }, 404)
-    }
-
-    return c.json({ success: true, data })
-})
-
-router.patch('/competition/:id/prediction', async (c) => {
-    const competitionId = Number(c.req.param('id'))
-    if (!Number.isFinite(competitionId)) {
-        return c.json({ success: false, error: 'Invalid competition ID' }, 400)
-    }
-
-    const body = await c.req.json().catch(() => ({}))
-    if (typeof body.enabled !== 'boolean') {
-        return c.json({ success: false, error: 'Missing or invalid enabled field' }, 400)
-    }
-
-    const supabase = getSupabaseClient(c.env)
-    const { data, error } = await supabase
-        .from('metrix_competition')
-        .update({ prediction_enabled: body.enabled })
-        .eq('id', competitionId)
-        .select('id, prediction_enabled')
-        .maybeSingle()
-
-    if (error) {
-        return c.json({ success: false, error: error.message }, 500)
-    }
-
-    if (!data) {
-        return c.json({ success: false, error: 'Competition not found' }, 404)
-    }
-
-    return c.json({ success: true, data })
-})
-
+router.patch('/competition/:id/ctp', (c) => patchCompetitionFlag(c, 'ctp_enabled'))
+router.patch('/competition/:id/checkin', (c) => patchCompetitionFlag(c, 'checkin_enabled'))
+router.patch('/competition/:id/prediction', (c) => patchCompetitionFlag(c, 'prediction_enabled'))
 router.patch('/competition/:id/did-rain', async (c) => {
     const competitionId = Number(c.req.param('id'))
     if (!Number.isFinite(competitionId)) {
         return c.json({ success: false, error: 'Invalid competition ID' }, 400)
     }
 
-    const body = await c.req.json().catch(() => ({}))
-    if (typeof body.enabled !== 'boolean') {
-        return c.json({ success: false, error: 'Missing or invalid enabled field' }, 400)
-    }
+    const parsed = await parseJsonBody(() => c.req.json(), adminDidRainSchema)
+    if (!parsed.success) return c.json({ success: false, error: parsed.error }, 400)
 
     const supabase = getSupabaseClient(c.env)
     const { data, error } = await supabase
         .from('metrix_competition')
-        .update({ did_rain: body.enabled })
+        .update({ did_rain: parsed.data.did_rain })
         .eq('id', competitionId)
         .select('id, did_rain')
         .maybeSingle()
 
-    if (error) {
-        return c.json({ success: false, error: error.message }, 500)
-    }
-
-    if (!data) {
-        return c.json({ success: false, error: 'Competition not found' }, 404)
-    }
+    if (error) return c.json({ success: false, error: error.message }, 500)
+    if (!data) return c.json({ success: false, error: 'Competition not found' }, 404)
 
     return c.json({ success: true, data })
 })
 
-const VALID_STATUSES = ['waiting', 'started', 'finished'] as const
 router.patch('/competition/:id/status', async (c) => {
     const competitionId = Number(c.req.param('id'))
     if (!Number.isFinite(competitionId)) {
         return c.json({ success: false, error: 'Invalid competition ID' }, 400)
     }
 
-    const body = await c.req.json().catch(() => ({}))
-    const status = body.status
-    if (typeof status !== 'string' || !VALID_STATUSES.includes(status as typeof VALID_STATUSES[number])) {
-        return c.json({ success: false, error: 'Missing or invalid status (expected: waiting | started | finished)' }, 400)
-    }
+    const parsed = await parseJsonBody(() => c.req.json(), adminStatusSchema)
+    if (!parsed.success) return c.json({ success: false, error: parsed.error }, 400)
+    const status = parsed.data.status
 
     const supabase = getSupabaseClient(c.env)
     const { data, error } = await supabase

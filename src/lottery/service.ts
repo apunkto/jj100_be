@@ -24,24 +24,15 @@ export const checkInPlayer = async (env: Env, player_id: number, metrixUserId: n
         .maybeSingle()
     
     if (compError || !competition || !competition.checkin_enabled) {
-        const err = new Error('Check-in is currently disabled')
-        // @ts-ignore
-        err.status = 403
-        throw err
+        throw Object.assign(new Error('Check-in is currently disabled'), { status: 403 })
     }
 
     const {data: participates, error: partError} = await isCompetitionParticipant(env, competitionId, metrixUserId)
     if (partError) {
-        const err: any = new Error('Võistluse andmeid ei leitud')
-        err.code = 'competition_not_available'
-        err.status = 503
-        throw err
+        throw Object.assign(new Error('Võistluse andmeid ei leitud'), { code: 'competition_not_available', status: 503 })
     }
     if (!participates) {
-        const err: any = new Error('Sa ei osale võistlusel!')
-        err.code = 'not_competition_participant'
-        err.status = 403
-        throw err
+        throw Object.assign(new Error('Sa ei osale võistlusel!'), { code: 'not_competition_participant', status: 403 })
     }
 
     const {data: existing} = await supabase
@@ -52,10 +43,7 @@ export const checkInPlayer = async (env: Env, player_id: number, metrixUserId: n
         .maybeSingle()
 
     if (existing) {
-        const err = new Error('Player already checked in')
-        // @ts-ignore
-        err.status = 409
-        throw err
+        throw Object.assign(new Error('Player already checked in'), { status: 409 })
     }
 
     const {data, error} = await supabase
