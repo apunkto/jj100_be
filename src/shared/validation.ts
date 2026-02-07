@@ -50,6 +50,7 @@ export const predictionBodySchema = z.object({
 // CTP submission
 export const ctpBodySchema = z.object({
     distance_cm: z.number().int().nonnegative(),
+    target_metrix_player_result_id: z.number().int().positive().optional(),
 })
 
 // Feedback

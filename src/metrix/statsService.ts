@@ -79,6 +79,7 @@ function findLongestAces(
 }
 
 export type MetrixPlayerResultRow = {
+    id: number;
     metrix_competition_id: number;
     user_id: string;
     name: string | null;

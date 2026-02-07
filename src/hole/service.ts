@@ -2,6 +2,7 @@ import type {SupabaseClient} from '@supabase/supabase-js'
 import {Env} from "../shared/types"
 import {getSupabaseClient} from "../shared/supabase"
 import {isCompetitionParticipant} from "../metrix/statsService"
+import type {PoolMate} from "./types"
 
 type HoleFilter = { metrix_competition_id?: number; number?: number; id?: number }
 
@@ -34,7 +35,7 @@ const fetchHoleWithCtp = async (supabase: SupabaseClient, holeFilter: HoleFilter
 
     const {data: ctpData, error: ctpError} = await supabase
         .from("ctp_results")
-        .select("*, player:player_id(*)")
+        .select("*, player:metrix_player_result_id(id, name, user_id)")
         .eq("hole_id", holeData.id)
         .order("distance_cm", {ascending: true})
 
@@ -63,7 +64,7 @@ export const getCtpByHoleNumber = async (env: Env, holeNumber: number, activeCom
 
     const {data: row, error} = await supabase
         .from("hole")
-        .select("ctp_results(*, player:player_id(*))")
+        .select("ctp_results(*, player:metrix_player_result_id(id, name, user_id))")
         .eq("metrix_competition_id", activeCompetitionId)
         .eq("number", holeNumber)
         .maybeSingle()
@@ -83,14 +84,56 @@ export const getHole = async (env: Env, holeId: number) => {
     return await fetchHoleWithCtp(supabase, {id: holeId})
 }
 
-// ✅ Submit CTP result
+/** Get other players in the same start_group (pool) for the given competition. */
+export const getPoolMates = async (
+    env: Env,
+    competitionId: number,
+    metrixUserId: number
+): Promise<{ data: PoolMate[]; error: { message: string; code: string } | null }> => {
+    const supabase = getSupabaseClient(env)
+    const userIdStr = String(metrixUserId)
+
+    const {data: myRow, error: myError} = await supabase
+        .from('metrix_player_result')
+        .select('id, start_group')
+        .eq('metrix_competition_id', competitionId)
+        .eq('user_id', userIdStr)
+        .maybeSingle()
+
+    if (myError || !myRow) {
+        return {data: [], error: myError ?? {message: 'Player not found', code: 'player_not_found'}}
+    }
+
+    const startGroup = myRow.start_group
+    if (startGroup == null || !Number.isFinite(startGroup)) {
+        return {data: [], error: null}
+    }
+
+    const {data: rows, error: listError} = await supabase
+        .from('metrix_player_result')
+        .select('id, name, user_id')
+        .eq('metrix_competition_id', competitionId)
+        .eq('start_group', startGroup)
+        .neq('user_id', userIdStr)
+
+    if (listError) return {data: [], error: listError}
+    const list: PoolMate[] = (rows ?? []).map((r) => ({
+        id: r.id,
+        name: r.name ?? null,
+        user_id: r.user_id,
+    }))
+    return {data: list, error: null}
+}
+
+// ✅ Submit CTP result (targetMetrixPlayerResultId = metrix_player_result.id for the player receiving the CTP; creatorPlayerId = player.id of logged-in user)
 export const submitCtpResult = async (
     env: Env,
     holeId: number,
-    player_id: number,
-    metrixUserId: number,
+    submitterMetrixUserId: number,
+    targetMetrixPlayerResultId: number,
     distance_cm: number,
-    competitionId: number
+    competitionId: number,
+    creatorPlayerId: number
 ) => {
     const supabase = getSupabaseClient(env)
 
@@ -100,7 +143,7 @@ export const submitCtpResult = async (
         .select('ctp_enabled')
         .eq('id', competitionId)
         .maybeSingle()
-    
+
     if (compError || !competition || !competition.ctp_enabled) {
         return {
             data: null,
@@ -133,7 +176,7 @@ export const submitCtpResult = async (
         }
     }
 
-    const {data: participates, error: partError} = await isCompetitionParticipant(env, competitionId, metrixUserId)
+    const {data: participates, error: partError} = await isCompetitionParticipant(env, competitionId, submitterMetrixUserId)
     if (partError) {
         return {
             data: null,
@@ -153,24 +196,71 @@ export const submitCtpResult = async (
         }
     }
 
-    if (Array.isArray(ctp) && ctp.some(r => r.player_id === player_id)) {
+    // Load submitter and target metrix_player_result rows (for proxy: verify same pool)
+    const {data: submitterRow, error: submitterErr} = await supabase
+        .from('metrix_player_result')
+        .select('id, start_group')
+        .eq('metrix_competition_id', competitionId)
+        .eq('user_id', String(submitterMetrixUserId))
+        .maybeSingle()
+
+    if (submitterErr || !submitterRow) {
+        return {
+            data: null,
+            error: {message: "Võistluse andmeid ei leitud", code: "competition_not_available"}
+        }
+    }
+
+    const {data: targetRow, error: targetErr} = await supabase
+        .from('metrix_player_result')
+        .select('id, start_group, metrix_competition_id')
+        .eq('id', targetMetrixPlayerResultId)
+        .maybeSingle()
+
+    if (targetErr || !targetRow) {
+        return {
+            data: null,
+            error: {message: "Mängijat ei leitud", code: "target_not_found"}
+        }
+    }
+
+    if (targetRow.metrix_competition_id !== competitionId) {
+        return {
+            data: null,
+            error: {message: "Mängija ei osale selles võistluses", code: "not_same_pool"}
+        }
+    }
+
+    // Proxy submission: target must be in same start_group as submitter
+    if (targetMetrixPlayerResultId !== submitterRow.id) {
+        const sg = submitterRow.start_group
+        const tg = targetRow.start_group
+        if (sg == null || tg == null || sg !== tg) {
+            return {
+                data: null,
+                error: {message: "Saad sisestada CTP ainult sama raja mängijatele", code: "not_same_pool"}
+            }
+        }
+    }
+
+    if (Array.isArray(ctp) && ctp.some((r: { metrix_player_result_id?: number }) => r.metrix_player_result_id === targetMetrixPlayerResultId)) {
         return {
             data: null,
             error: {
-                message: `You have already submitted a CTP result for hole ${hole.number}`,
+                message: `CTP tulemus on sellele korvile juba sisestatud`,
                 code: "ctp_already_submitted"
             }
         }
     }
 
     const currentLeader = Array.isArray(ctp) && ctp.length > 0 ? ctp[0] : null
-    const leaderDistance = currentLeader ? Number(currentLeader.distance_cm) : null
+    const leaderDistance = currentLeader ? Number((currentLeader as { distance_cm?: number }).distance_cm) : null
 
     if (leaderDistance !== null && distance_cm >= leaderDistance) {
         return {
             data: null,
             error: {
-                message: `Throw must be less than current CTP (${currentLeader.distance_cm} cm)`,
+                message: `Throw must be less than current CTP (${(currentLeader as { distance_cm?: number }).distance_cm} cm)`,
                 code: "ctp_too_far"
             }
         }
@@ -181,7 +271,8 @@ export const submitCtpResult = async (
         .insert([
             {
                 hole_id: hole.id,
-                player_id,
+                metrix_player_result_id: targetMetrixPlayerResultId,
+                creator_player_id: creatorPlayerId,
                 distance_cm
             }
         ])
@@ -208,7 +299,7 @@ export const getCtpHoles = async (env: Env, competitionId: number) => {
 
     const {data: ctpResults, error: ctpError} = await supabase
         .from('ctp_results')
-        .select('*, player:player_id(*)')
+        .select('*, player:metrix_player_result_id(id, name, user_id)')
         .in('hole_id', holeIds)
         .order('distance_cm', {ascending: true});
 

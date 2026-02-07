@@ -2,12 +2,14 @@ import {Hono} from 'hono'
 import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
 import {getUserResultOnHole} from '../metrix/service'
+import {getPlayerResult} from '../metrix/statsService'
 import {
     getCtpByHoleNumber,
     getCtpHoles,
     getHoleByNumber,
     getHoleCount,
     getHoles,
+    getPoolMates,
     getTopRankedHoles,
     submitCtpResult
 } from './service'
@@ -59,6 +61,16 @@ router.get('/hole/:number/ctp', async (c) => {
     })
 })
 
+router.get('/pool-mates', async (c) => {
+    const user = c.get('user')
+    if (user.activeCompetitionId == null) return jsonError(c, 'No active competition', 400)
+    const { data, error } = await getPoolMates(c.env, user.activeCompetitionId, user.metrixUserId)
+    if (error) return jsonError(c, error, 400)
+    return c.json(data ?? [], 200, {
+        'Cache-Control': 'private, max-age=3600, must-revalidate',
+    })
+})
+
 router.post('/ctp/:hole', async (c) => {
     const hole = Number(c.req.param('hole'))
     const parsed = await parseJsonBody(() => c.req.json(), ctpBodySchema)
@@ -67,7 +79,24 @@ router.post('/ctp/:hole', async (c) => {
     const user = c.get('user')
     if (user.activeCompetitionId == null) return jsonError(c, 'No active competition', 400)
 
-    const {data, error} = await submitCtpResult(c.env, hole, user.playerId, user.metrixUserId, parsed.data.distance_cm, user.activeCompetitionId)
+    let targetMetrixPlayerResultId: number
+    if (parsed.data.target_metrix_player_result_id != null) {
+        targetMetrixPlayerResultId = parsed.data.target_metrix_player_result_id
+    } else {
+        const { data: ownRow, error: ownErr } = await getPlayerResult(c.env, user.activeCompetitionId, String(user.metrixUserId))
+        if (ownErr || !ownRow?.id) return jsonError(c, ownErr ?? { message: 'No player result', code: 'player_not_found' }, 400)
+        targetMetrixPlayerResultId = ownRow.id
+    }
+
+    const { data, error } = await submitCtpResult(
+        c.env,
+        hole,
+        user.metrixUserId,
+        targetMetrixPlayerResultId,
+        parsed.data.distance_cm,
+        user.activeCompetitionId,
+        user.playerId
+    )
 
     if (error) {
         const status =
@@ -77,7 +106,9 @@ router.post('/ctp/:hole', async (c) => {
                         error.code === "hole_not_found" ? 404 :
                             error.code === "ctp_disabled" ? 403 :
                                 error.code === "not_competition_participant" ? 403 :
-                                    400
+                                    error.code === "not_same_pool" ? 403 :
+                                        error.code === "target_not_found" ? 404 :
+                                            400
 
         return jsonError(c, error, status)
     }

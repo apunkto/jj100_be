@@ -406,3 +406,32 @@ alter table metrix_player_result add column last_played_hole_index integer;
 -- Rows with no player_results (empty array) need explicit update for last_played_hole_index (leave null)
 update metrix_player_result set last_played_hole_index = null where total_holes = 0;
 
+-- 2025-02-07: CTP results reference metrix_player_result instead of player (enables pool-mate proxy submission)
+alter table ctp_results add column metrix_player_result_id bigint;
+
+update ctp_results cr
+set metrix_player_result_id = mpr.id
+from player p, hole h, metrix_player_result mpr
+where cr.player_id = p.id
+  and cr.hole_id = h.id
+  and mpr.user_id = p.metrix_user_id::varchar
+  and mpr.metrix_competition_id = h.metrix_competition_id;
+
+alter table ctp_results alter column metrix_player_result_id set not null;
+alter table ctp_results add constraint fk_ctp_metrix_player_result
+  foreign key (metrix_player_result_id) references metrix_player_result(id);
+alter table ctp_results drop constraint ctp_results_unique_player_hole;
+alter table ctp_results add constraint ctp_results_unique_hole_mpr
+  unique (hole_id, metrix_player_result_id);
+alter table ctp_results drop column player_id;
+
+-- 2025-02-07: Audit who entered each CTP submission (creator = logged-in app user who clicked submit)
+alter table ctp_results add column creator_player_id bigint
+  references player(id);
+
+update ctp_results cr
+set creator_player_id = p.id
+from metrix_player_result mpr, player p
+where cr.metrix_player_result_id = mpr.id
+  and p.metrix_user_id::varchar = mpr.user_id;
+
