@@ -6,7 +6,6 @@ usage_model = "unbound"
 [vars]
 SUPABASE_URL = "https://vchoisaglmnjyhiieete.supabase.co"
 SUPABASE_ANON_KEY = "your-public-anon-key"
-CURRENT_COMPETITION_ID = "3527246"
 
 [observability.logs]
 enabled = true
