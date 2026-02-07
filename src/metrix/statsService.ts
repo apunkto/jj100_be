@@ -178,14 +178,13 @@ export const getAllPlayerRankingFields = async (
 
 
 
-export const getMetrixPlayerStats = async (env: Env, userId: string, competitionId?: number) => {
-    const id = competitionId ?? Number(env.CURRENT_COMPETITION_ID);
-    const playerResult = await getPlayerResult(env, id, userId);
+export const getMetrixPlayerStats = async (env: Env, userId: string, competitionId: number) => {
+    const playerResult = await getPlayerResult(env, competitionId, userId);
     if (playerResult.error) return {data: null, error: playerResult.error};
     const selected = playerResult.data;
     if (!selected) return {data: null, error: null};
 
-    const ranking = await getAllPlayerRankingFields(env, id);
+    const ranking = await getAllPlayerRankingFields(env, competitionId);
     const results = ranking.data ?? [];
 
     const sameClass = results.filter(p => p.class_name === selected.class_name && !p.dnf);
@@ -219,7 +218,7 @@ export const getMetrixPlayerStats = async (env: Env, userId: string, competition
         : null;
 
     const response: PlayerStatsResponse = {
-        competitionId: id,
+        competitionId,
         cachedAt: selected.updated_date,
         player: {
             userId: selected.user_id,
