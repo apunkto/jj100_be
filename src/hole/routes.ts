@@ -1,6 +1,7 @@
 import {Hono} from 'hono'
 import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
+import {getUserResultOnHole} from '../metrix/service'
 import {
     getCtpByHoleNumber,
     getCtpHoles,
@@ -22,12 +23,25 @@ router.get('/hole/:number', async (c) => {
         : user.activeCompetitionId
     if (competitionId == null || !Number.isFinite(competitionId)) return c.json({ error: 'No active competition' }, 400)
     const holeNumber = Number(c.req.param('number'))
-    const { data, error } = await getHoleByNumber(c.env, holeNumber, competitionId)
+
+    const [holeRes, userRes] = await Promise.all([
+        getHoleByNumber(c.env, holeNumber, competitionId),
+        getUserResultOnHole(c.env, competitionId, String(user.metrixUserId), holeNumber),
+    ])
+    const { data, error } = holeRes
+    const { data: userHoleResult } = userRes
 
     if (error) return c.json({ error }, 400)
-
-    return c.json(data, 200, {
-        "Cache-Control": "private, max-age=60, must-revalidate"
+    if (!data?.hole) return c.json(data, 200, { 'Cache-Control': 'private, max-age=60, must-revalidate' })
+    const payload = {
+        hole: {
+            ...data.hole,
+            user_result: userHoleResult?.result ?? null,
+            user_has_penalty: userHoleResult?.hasPenalty ?? false,
+        },
+    }
+    return c.json(payload, 200, {
+        'Cache-Control': 'private, max-age=60, must-revalidate',
     })
 })
 

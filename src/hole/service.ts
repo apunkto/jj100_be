@@ -51,38 +51,27 @@ export const getHoleByNumber = async (env: Env, holeNumber: number, activeCompet
     return await fetchHoleOnly(supabase, {metrix_competition_id: activeCompetitionId, number: holeNumber})
 }
 
-// ✅ Public method: Get CTP results for a hole by number (not cached - for CTP page)
+// ✅ Public method: Get CTP results for a hole by number (single query: hole + ctp_results join)
 export const getCtpByHoleNumber = async (env: Env, holeNumber: number, activeCompetitionId: number | null) => {
     if (activeCompetitionId == null) {
         return {data: [], error: {message: "No active competition", code: "no_active_competition"}}
     }
     const supabase = getSupabaseClient(env)
 
-    const {data: holeData, error: holeError} = await supabase
+    const {data: row, error} = await supabase
         .from("hole")
-        .select("id, is_ctp")
+        .select("ctp_results(*, player:player_id(*))")
         .eq("metrix_competition_id", activeCompetitionId)
         .eq("number", holeNumber)
         .maybeSingle()
 
-    if (holeError || !holeData) {
-        return {data: [], error: holeError ?? {message: "Hole not found", code: "hole_not_found"}}
-    }
+    if (error) return {data: [], error}
+    if (!row) return {data: [], error: {message: "Hole not found", code: "hole_not_found"}}
 
-    if (!holeData.is_ctp) {
-        return {data: [], error: null}
-    }
-
-    const {data: ctpData, error: ctpError} = await supabase
-        .from("ctp_results")
-        .select("*, player:player_id(*)")
-        .eq("hole_id", holeData.id)
-        .order("distance_cm", {ascending: true})
-
-    return {
-        data: ctpError ? [] : ctpData ?? [],
-        error: ctpError
-    }
+    type CtpRow = { distance_cm?: number; [key: string]: unknown }
+    const ctpResults: CtpRow[] = (row as { ctp_results?: CtpRow[] }).ctp_results ?? []
+    const sorted = ctpResults.slice().sort((a, b) => (a.distance_cm ?? 0) - (b.distance_cm ?? 0))
+    return {data: sorted, error: null}
 }
 
 // ✅ Public method: Get hole by ID
