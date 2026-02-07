@@ -207,9 +207,15 @@ export const getTopPlayersByDivision = async (
     competitionId: number
 ): Promise<{ data: TopPlayersByDivisionResponse | null; error: { message: string } | null }> => {
     const supabase = getSupabaseClient(env);
-    const { data: rows, error } = await supabase.rpc('get_top_players_by_division', {
-        p_metrix_competition_id: competitionId,
-    });
+    const { data: rows, error } = await supabase
+        .from('metrix_player_result')
+        .select('user_id, name, class_name, order_number, diff, sum, dnf, player_results')
+        .eq('metrix_competition_id', competitionId)
+        .eq('dnf', false)
+        .not('order_number', 'is', null)
+        .lte('order_number', 10)
+        .order('class_name')
+        .order('order_number');
 
     if (error) return { data: null, error };
     const list = (rows ?? []) as { user_id: string; name: string | null; class_name: string | null; order_number: number | null; diff: number | null; sum: number | null; dnf: boolean; player_results: HoleResult[] | null }[];
@@ -222,6 +228,32 @@ export const getTopPlayersByDivision = async (
     }
 
     return { data: { topPlayersByDivision }, error: null };
+};
+
+export type MyDivisionResultResponse = {
+    place: number;
+    player: DashboardPlayerResult;
+} | null;
+
+export const getMyDivisionResult = async (
+    env: Env,
+    competitionId: number,
+    metrixUserId: number
+): Promise<{ data: MyDivisionResultResponse; error: { message: string } | null }> => {
+    const supabase = getSupabaseClient(env);
+    const { data: row, error } = await supabase
+        .from('metrix_player_result')
+        .select('user_id, name, class_name, order_number, diff, sum, dnf, player_results')
+        .eq('metrix_competition_id', competitionId)
+        .eq('user_id', String(metrixUserId))
+        .eq('dnf', false)
+        .maybeSingle();
+
+    if (error) return { data: null, error };
+    if (!row) return { data: null, error: null };
+    const place = Number(row.order_number) || 0;
+    const player = toDashboardPlayerResult(row);
+    return { data: { place, player }, error: null };
 };
 
 export type CompetitionStatsResponse = {

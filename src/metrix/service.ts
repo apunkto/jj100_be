@@ -272,7 +272,7 @@ export const updateHoleStatsFromMetrix = async (env: Env, metrixCompetitionId: n
             user_id: userId,
             name: p.Name ?? null,
             class_name: p.ClassName ?? null,
-            order_number: p.OrderNumber ?? null,
+            order_number: null,
             diff: p.Diff ?? null,
             sum: p.Sum ?? null,
             dnf: Boolean(p.Dnf),
@@ -293,6 +293,29 @@ export const updateHoleStatsFromMetrix = async (env: Env, metrixCompetitionId: n
             updated_date: now,
         };
     });
+
+    // Compute order_number (rank within division) for non-DNF only; DNF stays null
+    const byClass = new Map<string, typeof playerRows>();
+    for (const row of playerRows) {
+        const key = row.class_name ?? '';
+        if (!byClass.has(key)) byClass.set(key, []);
+        byClass.get(key)!.push(row);
+    }
+    for (const rows of byClass.values()) {
+        const nonDnf = rows.filter((r) => !r.dnf);
+        nonDnf.sort((a, b) => {
+            const diffA = a.diff ?? Infinity;
+            const diffB = b.diff ?? Infinity;
+            if (diffA !== diffB) return diffA - diffB;
+            if ((b.birdie_or_better ?? 0) !== (a.birdie_or_better ?? 0))
+                return (b.birdie_or_better ?? 0) - (a.birdie_or_better ?? 0);
+            if ((b.pars ?? 0) !== (a.pars ?? 0)) return (b.pars ?? 0) - (a.pars ?? 0);
+            return (b.bogeys ?? 0) - (a.bogeys ?? 0);
+        });
+        nonDnf.forEach((row, index) => {
+            (row as { order_number: number | null }).order_number = index + 1;
+        });
+    }
 
     const {error: playerErr} = await supabase
         .from('metrix_player_result')

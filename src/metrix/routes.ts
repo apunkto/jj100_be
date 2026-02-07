@@ -2,7 +2,7 @@ import {Hono} from 'hono'
 import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
 import {fetchMetrixIdentityByEmail, getCurrentHole} from './service'
-import {getCompetitionStats, getMetrixPlayerStats, getTopPlayersByDivision} from './statsService'
+import {getCompetitionStats, getMetrixPlayerStats, getMyDivisionResult, getTopPlayersByDivision,} from './statsService'
 import {getUserCompetitions} from '../player/service'
 import {getSupabaseClient} from '../shared/supabase'
 
@@ -42,12 +42,31 @@ router.get('/competition/:id/top-players-by-division', async (c) => {
         return c.json({ success: false, error: 'Invalid competition ID' }, 400)
     }
 
-    const user = c.get('user')
- 
     const { data, error } = await getTopPlayersByDivision(c.env, competitionId)
     if (error) return c.json({ success: false, error }, 500)
     c.header('Cache-Control', 'public, max-age=30')
     return c.json({ success: true, data: data ?? { topPlayersByDivision: {} } })
+})
+
+router.get('/competition/:id/my-division-result', async (c) => {
+    const competitionId = Number(c.req.param('id'))
+    if (!Number.isFinite(competitionId)) {
+        return c.json({ success: false, error: 'Invalid competition ID' }, 400)
+    }
+    const user = c.get('user')
+    const accessCheck = await verifyCompetitionAccess(c.env, user, competitionId)
+    if (!accessCheck.success) {
+        if (accessCheck.status === 403) {
+            return c.json({ success: false, error: accessCheck.error }, 403)
+        }
+        if (accessCheck.status === 404) {
+            return c.json({ success: false, error: accessCheck.error }, 404)
+        }
+        return c.json({ success: false, error: accessCheck.error }, 500)
+    }
+    const { data, error } = await getMyDivisionResult(c.env, competitionId, user.metrixUserId)
+    if (error) return c.json({ success: false, error }, 500)
+    return c.json({ success: true, data: data ?? null })
 })
 
 router.get('/competition/:id/stats', async (c) => {
