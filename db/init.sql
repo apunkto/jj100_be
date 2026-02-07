@@ -380,3 +380,66 @@ alter table metrix_player_result add column water_holes_with_pen integer NOT NUL
 -- 2025-02-06: Add did_rain flag to metrix_competition
 alter table metrix_competition
     add column did_rain boolean NOT NULL DEFAULT false;
+
+-- 2025-02-07: Score breakdown columns for metrix_player_result (tie-breaker + player stats)
+alter table metrix_player_result add column birdie_or_better integer NOT NULL DEFAULT 0;
+alter table metrix_player_result add column pars integer NOT NULL DEFAULT 0;
+alter table metrix_player_result add column bogeys integer NOT NULL DEFAULT 0;
+alter table metrix_player_result add column eagles integer NOT NULL DEFAULT 0;
+alter table metrix_player_result add column birdies integer NOT NULL DEFAULT 0;
+alter table metrix_player_result add column double_bogeys integer NOT NULL DEFAULT 0;
+alter table metrix_player_result add column triple_or_worse integer NOT NULL DEFAULT 0;
+
+
+-- Replace partial index with one that supports top-8-per-division ordering
+drop index if exists metrix_player_result_competition_class_dnf_diff_idx;
+create index metrix_player_result_competition_class_dnf_diff_idx
+    on metrix_player_result (metrix_competition_id, class_name, dnf, diff asc, birdie_or_better desc, pars desc, bogeys desc)
+    where dnf = false and diff is not null;
+
+-- 2025-02-07: Derived hole counts (avoid reading player_results for stats and current hole)
+alter table metrix_player_result add column total_holes integer NOT NULL DEFAULT 0;
+alter table metrix_player_result add column played_holes integer NOT NULL DEFAULT 0;
+alter table metrix_player_result add column ob_holes integer NOT NULL DEFAULT 0;
+alter table metrix_player_result add column last_played_hole_index integer;
+
+-- Rows with no player_results (empty array) need explicit update for last_played_hole_index (leave null)
+update metrix_player_result set last_played_hole_index = null where total_holes = 0;
+
+-- RPC: top 10 players per division for a competition
+create or replace function get_top_players_by_division(p_metrix_competition_id bigint)
+returns table (
+    user_id varchar(32),
+    name text,
+    class_name text,
+    order_number int,
+    diff int,
+    sum int,
+    dnf boolean,
+    player_results jsonb
+)
+language sql
+stable
+as $$
+    with ranked as (
+        select
+            mpr.user_id,
+            mpr.name,
+            mpr.class_name,
+            mpr.order_number,
+            mpr.diff,
+            mpr.sum,
+            mpr.dnf,
+            mpr.player_results,
+            row_number() over (
+                partition by mpr.class_name
+                order by mpr.diff asc nulls last, mpr.birdie_or_better desc, mpr.pars desc, mpr.bogeys desc
+            ) as rn
+        from metrix_player_result mpr
+        where mpr.metrix_competition_id = p_metrix_competition_id
+          and mpr.dnf = false
+    )
+    select ranked.user_id, ranked.name, ranked.class_name, ranked.order_number, ranked.diff, ranked.sum, ranked.dnf, ranked.player_results
+    from ranked
+    where ranked.rn <= 10;
+$$;

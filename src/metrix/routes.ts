@@ -43,19 +43,10 @@ router.get('/competition/:id/top-players-by-division', async (c) => {
     }
 
     const user = c.get('user')
-    const accessCheck = await verifyCompetitionAccess(c.env, user, competitionId)
-    if (!accessCheck.success) {
-        if (accessCheck.status === 403) {
-            return c.json({ success: false, error: accessCheck.error }, 403)
-        } else if (accessCheck.status === 404) {
-            return c.json({ success: false, error: accessCheck.error }, 404)
-        } else {
-            return c.json({ success: false, error: accessCheck.error }, 500)
-        }
-    }
-
+ 
     const { data, error } = await getTopPlayersByDivision(c.env, competitionId)
     if (error) return c.json({ success: false, error }, 500)
+    c.header('Cache-Control', 'public, max-age=30')
     return c.json({ success: true, data: data ?? { topPlayersByDivision: {} } })
 })
 

@@ -215,4 +215,36 @@ router.patch('/competition/:id/did-rain', async (c) => {
     return c.json({ success: true, data })
 })
 
+const VALID_STATUSES = ['waiting', 'started', 'finished'] as const
+router.patch('/competition/:id/status', async (c) => {
+    const competitionId = Number(c.req.param('id'))
+    if (!Number.isFinite(competitionId)) {
+        return c.json({ success: false, error: 'Invalid competition ID' }, 400)
+    }
+
+    const body = await c.req.json().catch(() => ({}))
+    const status = body.status
+    if (typeof status !== 'string' || !VALID_STATUSES.includes(status as typeof VALID_STATUSES[number])) {
+        return c.json({ success: false, error: 'Missing or invalid status (expected: waiting | started | finished)' }, 400)
+    }
+
+    const supabase = getSupabaseClient(c.env)
+    const { data, error } = await supabase
+        .from('metrix_competition')
+        .update({ status })
+        .eq('id', competitionId)
+        .select('id, status')
+        .maybeSingle()
+
+    if (error) {
+        return c.json({ success: false, error: error.message }, 500)
+    }
+
+    if (!data) {
+        return c.json({ success: false, error: 'Competition not found' }, 404)
+    }
+
+    return c.json({ success: true, data })
+})
+
 export default router

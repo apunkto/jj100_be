@@ -15,6 +15,17 @@ export type MetrixPlayerResultRow = {
     player_results: HoleResult[] | null;
     updated_date: string;
     water_holes_with_pen: number;
+    birdie_or_better: number;
+    pars: number;
+    bogeys: number;
+    eagles: number;
+    birdies: number;
+    double_bogeys: number;
+    triple_or_worse: number;
+    total_holes: number;
+    played_holes: number;
+    ob_holes: number;
+    last_played_hole_index: number | null;
 };
 
 export type PlayerStatsResponse = {
@@ -114,40 +125,22 @@ export const getMetrixPlayerStats = async (env: Env, userId: string, competition
     const index = sorted.findIndex(p => p.user_id === selected.user_id);
     const overallPlace = index >= 0 ? index + 1 : null;
 
-    // score breakdown
-    let scoreBreakdown: PlayerStatsResponse['scoreBreakdown'] = null;
-    const holes = selected.player_results ?? [];
-    if (holes.length) {
-        let eagles = 0, birdies = 0, pars = 0, bogeys = 0, doubleBogeys = 0, tripleOrWorse = 0;
+    // score breakdown and hole counts (from persisted columns)
+    const totalHoles = selected.total_holes ?? 0;
+    const playedHoles = selected.played_holes ?? 0;
+    const obHoles = selected.ob_holes ?? 0;
+    const playedPct = totalHoles > 0 ? (playedHoles / totalHoles) * 100 : null;
 
-        for (const hole of holes) {
-            const diff = hole.Diff;
-            if (diff <= -2) eagles++;
-            else if (diff === -1) birdies++;
-            else if (diff === 0) pars++;
-            else if (diff === 1) bogeys++;
-            else if (diff === 2) doubleBogeys++;
-            else if (diff >= 3) tripleOrWorse++;
+    const scoreBreakdown: PlayerStatsResponse['scoreBreakdown'] = totalHoles > 0
+        ? {
+            eagles: selected.eagles,
+            birdies: selected.birdies,
+            pars: selected.pars,
+            bogeys: selected.bogeys,
+            doubleBogeys: selected.double_bogeys,
+            tripleOrWorse: selected.triple_or_worse,
         }
-
-        scoreBreakdown = {eagles, birdies, pars, bogeys, doubleBogeys, tripleOrWorse};
-    }
-
-    const totalHoles = holes.length
-
-    const playedHoles = holes.reduce((acc, h) => {
-        // adjust if your API uses different "not played" markers
-        const r = (h.Result ?? "").trim()
-        return acc + (r !== "" ? 1 : 0)
-    }, 0)
-
-    const playedPct = totalHoles > 0 ? (playedHoles / totalHoles) * 100 : null
-
-    //OB holes
-    const obHoles = holes.filter(h => {
-        const pen = Number(String(h.PEN ?? "0").replace(",", "."))
-        return Number.isFinite(pen) && pen > 0
-    }).length
+        : null;
 
     const response: PlayerStatsResponse = {
         competitionId: id,
@@ -187,18 +180,16 @@ export type TopPlayersByDivisionResponse = {
     topPlayersByDivision: Record<string, DashboardPlayerResult[]>;
 };
 
-function countScoreTypes(player: MetrixPlayerResultRow): { birdieOrBetter: number; pars: number; bogeys: number } {
-    let birdieOrBetter = 0, pars = 0, bogeys = 0;
-    for (const hole of player.player_results ?? []) {
-        const diff = hole.Diff;
-        if (diff <= -1) birdieOrBetter++;
-        else if (diff === 0) pars++;
-        else if (diff === 1) bogeys++;
-    }
-    return { birdieOrBetter, pars, bogeys };
-}
-
-function toDashboardPlayerResult(row: MetrixPlayerResultRow): DashboardPlayerResult {
+function toDashboardPlayerResult(row: {
+    user_id: string;
+    name: string | null;
+    class_name: string | null;
+    order_number: number | null;
+    diff: number | null;
+    sum: number | null;
+    dnf: boolean;
+    player_results?: HoleResult[] | null;
+}): DashboardPlayerResult {
     return {
         UserID: parseInt(row.user_id, 10) || 0,
         Name: row.name ?? '',
@@ -216,36 +207,18 @@ export const getTopPlayersByDivision = async (
     competitionId: number
 ): Promise<{ data: TopPlayersByDivisionResponse | null; error: { message: string } | null }> => {
     const supabase = getSupabaseClient(env);
-    const { data: rows, error } = await supabase
-        .from('metrix_player_result')
-        .select('*')
-        .eq('metrix_competition_id', competitionId);
+    const { data: rows, error } = await supabase.rpc('get_top_players_by_division', {
+        p_metrix_competition_id: competitionId,
+    });
 
     if (error) return { data: null, error };
-    const players = (rows ?? []) as MetrixPlayerResultRow[];
-
-    const grouped: Record<string, MetrixPlayerResultRow[]> = {};
-    for (const p of players) {
-        if (p.dnf) continue;
-        const div = p.class_name ?? '';
-        if (!grouped[div]) grouped[div] = [];
-        grouped[div].push(p);
-    }
+    const list = (rows ?? []) as { user_id: string; name: string | null; class_name: string | null; order_number: number | null; diff: number | null; sum: number | null; dnf: boolean; player_results: HoleResult[] | null }[];
 
     const topPlayersByDivision: Record<string, DashboardPlayerResult[]> = {};
-    for (const [division, list] of Object.entries(grouped)) {
-        list.sort((a, b) => {
-            const aDiff = a.diff ?? 0;
-            const bDiff = b.diff ?? 0;
-            if (aDiff !== bDiff) return aDiff - bDiff;
-            const aStats = countScoreTypes(a);
-            const bStats = countScoreTypes(b);
-            if (aStats.birdieOrBetter !== bStats.birdieOrBetter) return bStats.birdieOrBetter - aStats.birdieOrBetter;
-            if (aStats.pars !== bStats.pars) return bStats.pars - aStats.pars;
-            if (aStats.bogeys !== bStats.bogeys) return bStats.bogeys - aStats.bogeys;
-            return 0;
-        });
-        topPlayersByDivision[division] = list.slice(0, 8).map(toDashboardPlayerResult);
+    for (const row of list) {
+        const div = row.class_name ?? '';
+        if (!topPlayersByDivision[div]) topPlayersByDivision[div] = [];
+        topPlayersByDivision[div].push(toDashboardPlayerResult(row));
     }
 
     return { data: { topPlayersByDivision }, error: null };
