@@ -96,7 +96,7 @@ export default {
                 }
                 break;
                 
-            case '*/5 * * * *':
+            case '*/30 * * * *':
                 // Run prediction precomputation every 5 minutes
                 const predictionStart = Date.now();
                 const { error: predictionError, results: predictionResults } = await runPredictionPrecompute(env);
