@@ -433,6 +433,7 @@ export const getCurrentHole = async (
   if (totalHoles <= 0) {
     return { data: groupHole, error: null };
   }
+  
 
   const lastIdx = row.last_played_hole_index;
   if (lastIdx == null) {
