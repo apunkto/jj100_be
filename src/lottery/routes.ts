@@ -363,7 +363,7 @@ router.post('/final-game/game/attempt', async (c) => {
     const { error, payload } = await recordPuttingResult(c.env, user.activeCompetitionId, participantId, result)
     if (error) return c.json({ error }, 400)
     console.log('[lottery] recordPuttingResult success, broadcasting to DO competitionId=', user.activeCompetitionId, 'payload gameStatus=', payload?.puttingGame?.gameStatus)
-    void broadcastFinalGamePuttingState(c.env, user.activeCompetitionId, payload)
+    await broadcastFinalGamePuttingState(c.env, user.activeCompetitionId, payload)
     return c.json({ success: true })
 })
 
@@ -402,26 +402,26 @@ async function broadcastFinalGamePuttingState(
     const doName = `final-game-putting-${competitionId}`
     console.log('[lottery] broadcastFinalGamePuttingState: sending to DO', doName, 'gameStatus=', (payload as { puttingGame?: { gameStatus?: string } }).puttingGame?.gameStatus)
     const doStub = env.FINAL_GAME_PUTTING_DO.get(env.FINAL_GAME_PUTTING_DO.idFromName(doName))
-    void doStub
-        .fetch(
+    try {
+        const res = await doStub.fetch(
             new Request('http://do/broadcast', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             }) as any
         )
-        .then(async (res) => {
-            const text = await (res as { text(): Promise<string>; status: number }).text()
-            const status = (res as { status: number }).status
-            let parsed: { success?: boolean; streamsWritten?: number } = {}
-            try {
-                parsed = JSON.parse(text) as { success?: boolean; streamsWritten?: number }
-            } catch {
-                // ignore
-            }
-            console.log('[lottery] broadcastFinalGamePuttingState: DO responded', status, 'for', doName, 'streamsWritten=', parsed.streamsWritten ?? '?', parsed.success === true ? 'ok' : 'body=' + text.slice(0, 120))
-        })
-        .catch((err) => console.error('[lottery] final-game-putting broadcast failed:', err))
+        const text = await (res as { text(): Promise<string>; status: number }).text()
+        const status = (res as { status: number }).status
+        let parsed: { success?: boolean; streamsWritten?: number } = {}
+        try {
+            parsed = JSON.parse(text) as { success?: boolean; streamsWritten?: number }
+        } catch {
+            // ignore
+        }
+        console.log('[lottery] broadcastFinalGamePuttingState: DO responded', status, 'for', doName, 'streamsWritten=', parsed.streamsWritten ?? '?', parsed.success === true ? 'ok' : 'body=' + text.slice(0, 120))
+    } catch (err) {
+        console.error('[lottery] final-game-putting broadcast failed:', err)
+    }
 }
 
 router.delete('/final-game/:id', async (c) => {
