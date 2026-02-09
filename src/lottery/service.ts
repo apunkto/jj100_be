@@ -8,9 +8,15 @@ export type CheckedInPlayer = {
         id: number
         name: string
     }
-    prize_won: boolean,
-    final_game: boolean,
-    final_game_order: number | null
+    prize_won: boolean
+}
+
+export type FinalGameParticipant = {
+    id: number
+    player: { id: number; name: string }
+    final_game_order: number
+    last_level: number
+    last_result: 'in' | 'out' | null
 }
 
 export const checkInPlayer = async (env: Env, player_id: number, metrixUserId: number, competitionId: number) => {
@@ -71,10 +77,28 @@ export const getCheckedInPlayers = async (env: Env, competitionId: number) => {
 
 
 
-export const drawRandomWinner = async (env: Env, competitionId: number, finalGame = false): Promise<{ data: CheckedInPlayer | null, error: { message: string } | null }> => {
+export const getFinalGameParticipants = async (env: Env, competitionId: number) => {
+    const supabase = getSupabaseClient(env)
+    const { data, error } = await supabase
+        .from('final_game_participant')
+        .select('id, final_game_order, last_level, last_result, player:player_id(id, name)')
+        .eq('metrix_competition_id', competitionId)
+        .order('final_game_order', { ascending: true })
+    return { data: data as FinalGameParticipant[] | null, error }
+}
+
+export const getEligibleFinalGameCount = async (env: Env, competitionId: number): Promise<number> => {
+    const supabase = getSupabaseClient(env)
+    const { data, error } = await supabase.rpc('get_eligible_final_game_count', {
+        p_competition_id: competitionId,
+    })
+    if (error) return 0
+    return Number(data ?? 0)
+}
+
+export const drawRandomWinner = async (env: Env, competitionId: number, finalGame = false): Promise<{ data: CheckedInPlayer | null; participantNames: string[]; error: { message: string } | null }> => {
     const supabase = getSupabaseClient(env)
 
-    // 🧠 Build correct filter
     let query = supabase
         .from('lottery_checkin')
         .select('*, player:player_id(id, name)')
@@ -83,19 +107,26 @@ export const drawRandomWinner = async (env: Env, competitionId: number, finalGam
     if (!finalGame) {
         query = query.eq('prize_won', false)
     } else {
-        query = query.eq('final_game', false)
+        const { data: inFinal } = await supabase
+            .from('final_game_participant')
+            .select('player_id')
+            .eq('metrix_competition_id', competitionId)
+        const inFinalIds = (inFinal ?? []).map((r) => r.player_id)
+        if (inFinalIds.length > 0) {
+            query = query.not('player_id', 'in', `(${inFinalIds.join(',')})`)
+        }
     }
 
     const { data: eligiblePlayers, error } = await query
 
     if (error || !eligiblePlayers || eligiblePlayers.length === 0) {
-        return { data: null, error: { message: 'No eligible players' } }
+        return { data: null, participantNames: [], error: { message: 'No eligible players' } }
     }
 
-    // 🎯 Pick random winner
+    const participantNames = eligiblePlayers.map((p) => (p as CheckedInPlayer).player?.name ?? '').filter(Boolean)
+
     const winner = eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)] as CheckedInPlayer
 
-    // 🎯 Update winner's record
     if (!finalGame) {
         const { error: updateError } = await supabase
             .from('lottery_checkin')
@@ -103,47 +134,54 @@ export const drawRandomWinner = async (env: Env, competitionId: number, finalGam
             .eq('id', winner.id)
 
         if (updateError) {
-            return { data: null, error: { message: updateError.message } }
+            return { data: null, participantNames: [], error: { message: updateError.message } }
         }
     }
 
-    return { data: winner, error: null }
+    return { data: winner, participantNames, error: null }
 }
 
 
-// Confirm player to final game
-export const confirmFinalGamePlayer = async (env: Env, checkinId: number, competitionId: number) => {
+export const removeFinalGameParticipant = async (env: Env, finalGameId: number, competitionId: number): Promise<{ error: { message: string } | null }> => {
     const supabase = getSupabaseClient(env)
+    const { error: deleteError } = await supabase
+        .from('final_game_participant')
+        .delete()
+        .eq('id', finalGameId)
+        .eq('metrix_competition_id', competitionId)
+    if (deleteError) return { error: { message: deleteError.message } }
+    const { error: renumError } = await supabase.rpc('renumber_final_game_participants', {
+        p_competition_id: competitionId,
+    })
+    if (renumError) return { error: { message: renumError.message } }
+    return { error: null }
+}
 
-    // First: Find the current max final_game_order for this competition
-    const { data: maxOrderData, error: maxError } = await supabase
-        .from('lottery_checkin')
+export const addFinalGameParticipant = async (env: Env, competitionId: number, playerId: number): Promise<{ error: { message: string } | null }> => {
+    const supabase = getSupabaseClient(env)
+    const { data: maxData } = await supabase
+        .from('final_game_participant')
         .select('final_game_order')
-        .eq('final_game', true)
         .eq('metrix_competition_id', competitionId)
         .order('final_game_order', { ascending: false })
         .limit(1)
         .maybeSingle()
+    const nextOrder = ((maxData?.final_game_order as number) ?? 0) + 1
+    const { error } = await supabase
+        .from('final_game_participant')
+        .insert({ metrix_competition_id: competitionId, player_id: playerId, final_game_order: nextOrder })
+    if (error) return { error: { message: error.message } }
+    return { error: null }
+}
 
-    if (maxError) {
-        return { error: { message: maxError.message } }
-    }
-
-    const nextOrder = (maxOrderData?.final_game_order ?? 0) + 1
-
-    // Then: Update the chosen check-in
-    const { error: updateError } = await supabase
-        .from('lottery_checkin')
-        .update({
-            final_game: true,
-            final_game_order: nextOrder
-        })
-        .eq('id', checkinId)
-
-    if (updateError) {
-        return { error: { message: updateError.message } }
-    }
-
+export const confirmFinalGamePlayer = async (env: Env, checkinId: number, competitionId: number) => {
+    const supabase = getSupabaseClient(env)
+    const { data: newId, error } = await supabase.rpc('confirm_final_game_player', {
+        p_checkin_id: checkinId,
+        p_competition_id: competitionId,
+    })
+    if (error) return { error: { message: error.message } }
+    if (!newId) return { error: { message: 'Check-in not found' } }
     return { error: null }
 }
 

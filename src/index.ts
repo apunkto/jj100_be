@@ -15,6 +15,11 @@ import adminRoutes, {runMetrixSync} from './admin/routes'
 import predictionRoutes from './prediction/routes'
 import {runPredictionPrecompute} from './prediction/precompute'
 import type {Env} from './shared/types'
+import {DrawDashboardDO} from './lottery/drawDashboardDO'
+import {FinalGameDrawDO} from './lottery/finalGameDrawDO'
+import {FinalGamePuttingDO} from './lottery/finalGamePuttingDO'
+
+export {DrawDashboardDO, FinalGameDrawDO, FinalGamePuttingDO}
 
 const PUBLIC_PATHS = [
     /^\/metrix\/check-email$/,

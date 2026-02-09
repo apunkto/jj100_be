@@ -435,3 +435,85 @@ from metrix_player_result mpr, player p
 where cr.metrix_player_result_id = mpr.id
   and p.metrix_user_id::varchar = mpr.user_id;
 
+-- 2025-02-09: final_game_participant - participants drawn to final game (putimäng) per competition
+create table final_game_participant
+(
+    id                    bigserial   NOT NULL PRIMARY KEY,
+    metrix_competition_id bigint      NOT NULL REFERENCES metrix_competition(id),
+    player_id             bigint      NOT NULL REFERENCES player(id),
+    final_game_order      int         NOT NULL,
+    last_level            int         NOT NULL DEFAULT 0,
+    last_result           text,
+    created_date          timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (metrix_competition_id, player_id)
+);
+create index final_game_participant_competition_order_idx on final_game_participant (metrix_competition_id, final_game_order);
+
+-- Drop final_game columns from lottery_checkin (replaced by final_game_participant table)
+alter table lottery_checkin drop column if exists final_game;
+alter table lottery_checkin drop column if exists final_game_order;
+
+-- 2025-02-09: final_game_state - putting game state (replaces final_game + final_game_attempt)
+create table final_game_state
+(
+    id                                   bigserial PRIMARY KEY,
+    metrix_competition_id                bigint NOT NULL REFERENCES metrix_competition(id),
+    status                               text NOT NULL DEFAULT 'not_started',
+    current_level                        int NOT NULL DEFAULT 1,
+    current_turn_final_game_participant_id bigint REFERENCES final_game_participant(id),
+    winner_final_game_participant_id     bigint REFERENCES final_game_participant(id),
+    started_at                           timestamptz,
+    finished_at                          timestamptz,
+    updated_at                           timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (metrix_competition_id)
+);
+create index final_game_state_competition_idx on final_game_state(metrix_competition_id);
+
+-- RPC: count lottery check-ins not yet in final game (for putimäng participant selection)
+create or replace function get_eligible_final_game_count(p_competition_id bigint)
+returns bigint language sql stable as $$
+  select count(*)::bigint
+  from lottery_checkin lc
+  where lc.metrix_competition_id = p_competition_id
+    and not exists (
+      select 1 from final_game_participant fgp
+      where fgp.metrix_competition_id = p_competition_id
+        and fgp.player_id = lc.player_id
+    );
+$$;
+
+-- RPC: renumber final_game_order after removing a participant (1 update instead of N)
+create or replace function renumber_final_game_participants(p_competition_id bigint)
+returns void language sql as $$
+  update final_game_participant fgp
+  set final_game_order = sub.new_order
+  from (
+    select id, row_number() over (order by final_game_order)::int as new_order
+    from final_game_participant
+    where metrix_competition_id = p_competition_id
+  ) sub
+  where fgp.id = sub.id;
+$$;
+
+-- RPC: add final game participant from checkin in one round-trip
+create or replace function confirm_final_game_player(p_checkin_id bigint, p_competition_id bigint)
+returns bigint language plpgsql as $$
+declare
+  v_player_id bigint;
+  v_next_order int;
+  v_new_id bigint;
+begin
+  select player_id into v_player_id
+  from lottery_checkin
+  where id = p_checkin_id and metrix_competition_id = p_competition_id;
+  if v_player_id is null then
+    return 0;
+  end if;
+  select coalesce(max(final_game_order), 0) + 1 into v_next_order
+  from final_game_participant where metrix_competition_id = p_competition_id;
+  insert into final_game_participant (metrix_competition_id, player_id, final_game_order)
+  values (p_competition_id, v_player_id, v_next_order)
+  returning id into v_new_id;
+  return v_new_id;
+end;
+$$;

@@ -7,6 +7,30 @@ usage_model = "unbound"
 SUPABASE_URL = "https://vchoisaglmnjyhiieete.supabase.co"
 SUPABASE_ANON_KEY = "your-public-anon-key"
 
+[[kv_namespaces]]
+binding = "DRAW_STATE"
+id = "1bb295a954b142afb3139dde62b273d9"
+
+[[kv_namespaces]]
+binding = "FINAL_GAME_STATE"
+id = "e6b1570821c248b09ed9ccb9204e9d17"
+
+[[durable_objects.bindings]]
+name = "DRAW_DASHBOARD_DO"
+class_name = "DrawDashboardDO"
+
+[[durable_objects.bindings]]
+name = "FINAL_GAME_DRAW_DO"
+class_name = "FinalGameDrawDO"
+
+[[durable_objects.bindings]]
+name = "FINAL_GAME_PUTTING_DO"
+class_name = "FinalGamePuttingDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DrawDashboardDO", "FinalGameDrawDO", "FinalGamePuttingDO"]
+
 [observability.logs]
 enabled = true
 
