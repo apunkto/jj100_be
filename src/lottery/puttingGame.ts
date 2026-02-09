@@ -1,7 +1,7 @@
-import type { Env } from '../shared/types'
-import { getSupabaseClient } from '../shared/supabase'
-import { getFinalGameParticipants } from './service'
-import type { FinalGameParticipant } from './service'
+import type {Env} from '../shared/types'
+import {getSupabaseClient} from '../shared/supabase'
+import type {FinalGameParticipant} from './service'
+import {getFinalGameParticipants} from './service'
 
 export type PuttingGameState = {
     status: 'not_started' | 'running' | 'finished'
@@ -221,7 +221,10 @@ export async function recordPuttingResult(
         return { error: stateErr ?? 'Game not running' }
     }
     if (gameState.current_turn_final_game_participant_id !== participantId) {
-        return { error: 'Not current turn' }
+        return {
+            error:
+                'Not current turn. If you use the page on Cloudflare but send attempts from local (or vice versa), use the same API for both.',
+        }
     }
 
     const currentLevel = gameState.current_level

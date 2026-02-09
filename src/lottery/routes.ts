@@ -7,28 +7,20 @@ import {
     deleteCheckinPlayer,
     drawRandomWinner,
     getCheckedInPlayers,
-    getMyCheckin
+    getEligibleFinalGameCount,
+    getFinalGameParticipants,
+    getMyCheckin,
+    removeFinalGameParticipant
 } from './service'
+import {getDrawState, getEligibleDrawCount, setDrawState} from './drawState'
 import {
-    deleteDrawState,
-    getDrawState,
-    getEligibleDrawCount,
-    setDrawState
-} from './drawState'
-import {
-    getFinalGameState,
     getFinalGameDrawState,
     getFinalGamePuttingPayload,
+    getFinalGameState,
     setFinalGameDrawState,
 } from './finalGameState'
-import { getFinalGameParticipants, getEligibleFinalGameCount, removeFinalGameParticipant } from './service'
-import {
-    getPuttingGameState,
-    recordPuttingResult,
-    resetPuttingGame,
-    startPuttingGame,
-} from './puttingGame'
-import { base64EncodeUtf8 } from './base64'
+import {getPuttingGameState, recordPuttingResult, resetPuttingGame, startPuttingGame,} from './puttingGame'
+import {base64EncodeUtf8} from './base64'
 import {requireAdmin} from '../middleware/admin'
 
 type HonoVars = { user: PlayerIdentity }
@@ -284,9 +276,10 @@ router.get('/final-game-putting-sse', async (c) => {
     headers.set('X-Competition-Id', competitionId.toString())
     const doRequest = new Request(c.req.raw.url, { method: 'GET', headers })
 
-    const doStub = c.env.FINAL_GAME_PUTTING_DO.get(c.env.FINAL_GAME_PUTTING_DO.idFromName(`final-game-putting-${competitionId}`))
+    const doName = `final-game-putting-${competitionId}`
+    const doStub = c.env.FINAL_GAME_PUTTING_DO.get(c.env.FINAL_GAME_PUTTING_DO.idFromName(doName))
     const doRes = (await doStub.fetch(doRequest as any)) as unknown as Response
-    console.log('[lottery] final-game-putting-sse: DO responded', doRes.status, 'for competitionId=', competitionId)
+    console.log('[lottery] final-game-putting-sse: DO', doName, 'responded', doRes.status, '— client SSE stream attached')
     if (!doRes.ok || !doRes.body) return doRes
 
     const { readable, writable } = new TransformStream()
@@ -417,7 +410,17 @@ async function broadcastFinalGamePuttingState(
                 body: JSON.stringify(payload),
             }) as any
         )
-        .then(() => console.log('[lottery] broadcastFinalGamePuttingState: DO fetch resolved for', doName))
+        .then(async (res) => {
+            const text = await (res as { text(): Promise<string>; status: number }).text()
+            const status = (res as { status: number }).status
+            let parsed: { success?: boolean; streamsWritten?: number } = {}
+            try {
+                parsed = JSON.parse(text) as { success?: boolean; streamsWritten?: number }
+            } catch {
+                // ignore
+            }
+            console.log('[lottery] broadcastFinalGamePuttingState: DO responded', status, 'for', doName, 'streamsWritten=', parsed.streamsWritten ?? '?', parsed.success === true ? 'ok' : 'body=' + text.slice(0, 120))
+        })
         .catch((err) => console.error('[lottery] final-game-putting broadcast failed:', err))
 }
 

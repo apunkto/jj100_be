@@ -1,9 +1,9 @@
-import { DurableObject } from 'cloudflare:workers'
-import type { DurableObjectState } from '@cloudflare/workers-types'
-import type { Env } from '../shared/types'
-import { getFinalGamePuttingPayload } from './finalGameState'
-import type { FinalGamePuttingResponse } from './finalGameState'
-import { base64DecodeUtf8 } from './base64'
+import {DurableObject} from 'cloudflare:workers'
+import type {DurableObjectState} from '@cloudflare/workers-types'
+import type {Env} from '../shared/types'
+import type {FinalGamePuttingResponse} from './finalGameState'
+import {getFinalGamePuttingPayload} from './finalGameState'
+import {base64DecodeUtf8} from './base64'
 
 const INITIAL_STATE_HEADER = 'X-Initial-Final-Game-Putting-State'
 const COMPETITION_ID_HEADER = 'X-Competition-Id'
@@ -181,12 +181,14 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
             return new Response('Invalid JSON', { status: 400 })
         }
         const competitionId = parseCompetitionId(this.ctx.id)
-        console.log('[FinalGamePuttingDO] handleBroadcast: competitionId=', competitionId, 'streams=', this.streams.length, 'gameStatus=', body.puttingGame?.gameStatus)
+        const streamCount = this.streams.length
+        console.log('[FinalGamePuttingDO] handleBroadcast: competitionId=', competitionId, 'streams=', streamCount, 'gameStatus=', body.puttingGame?.gameStatus)
         const msg = sseMessage(body)
         await this.broadcastToAll(msg)
-        return new Response(JSON.stringify({ success: true }), {
-            headers: { 'Content-Type': 'application/json' },
-        })
+        return new Response(
+            JSON.stringify({ success: true, streamsWritten: streamCount }),
+            { headers: { 'Content-Type': 'application/json' } }
+        )
     }
 
     private removeStream(entry: StreamEntry): void {
