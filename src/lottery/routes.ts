@@ -276,6 +276,7 @@ router.get('/final-game-putting-sse', async (c) => {
     if (user.activeCompetitionId == null) return c.json({ error: 'No active competition' }, 400)
 
     const competitionId = user.activeCompetitionId
+    console.log('[lottery] final-game-putting-sse: opening stream for competitionId=', competitionId)
     const state = await getFinalGamePuttingPayload(c.env, competitionId)
     const payload = state ?? { puttingGame: { gameStatus: 'not_started', currentLevel: 1, currentTurnParticipantId: null, currentTurnName: null, winnerName: null, players: [] } }
     const headers = new Headers(c.req.raw.headers)
@@ -285,6 +286,7 @@ router.get('/final-game-putting-sse', async (c) => {
 
     const doStub = c.env.FINAL_GAME_PUTTING_DO.get(c.env.FINAL_GAME_PUTTING_DO.idFromName(`final-game-putting-${competitionId}`))
     const doRes = (await doStub.fetch(doRequest as any)) as unknown as Response
+    console.log('[lottery] final-game-putting-sse: DO responded', doRes.status, 'for competitionId=', competitionId)
     if (!doRes.ok || !doRes.body) return doRes
 
     const { readable, writable } = new TransformStream()
@@ -367,6 +369,7 @@ router.post('/final-game/game/attempt', async (c) => {
     if (participantId == null || !result) return c.json({ error: 'participantId and result (in|out) required' }, 400)
     const { error, payload } = await recordPuttingResult(c.env, user.activeCompetitionId, participantId, result)
     if (error) return c.json({ error }, 400)
+    console.log('[lottery] recordPuttingResult success, broadcasting to DO competitionId=', user.activeCompetitionId, 'payload gameStatus=', payload?.puttingGame?.gameStatus)
     void broadcastFinalGamePuttingState(c.env, user.activeCompetitionId, payload)
     return c.json({ success: true })
 })
@@ -399,8 +402,13 @@ async function broadcastFinalGamePuttingState(
     payloadOverride?: { puttingGame: unknown }
 ): Promise<void> {
     const payload = payloadOverride ?? (await getFinalGamePuttingPayload(env, competitionId))
-    if (!payload) return
-    const doStub = env.FINAL_GAME_PUTTING_DO.get(env.FINAL_GAME_PUTTING_DO.idFromName(`final-game-putting-${competitionId}`))
+    if (!payload) {
+        console.log('[lottery] broadcastFinalGamePuttingState: no payload for competitionId=', competitionId)
+        return
+    }
+    const doName = `final-game-putting-${competitionId}`
+    console.log('[lottery] broadcastFinalGamePuttingState: sending to DO', doName, 'gameStatus=', (payload as { puttingGame?: { gameStatus?: string } }).puttingGame?.gameStatus)
+    const doStub = env.FINAL_GAME_PUTTING_DO.get(env.FINAL_GAME_PUTTING_DO.idFromName(doName))
     void doStub
         .fetch(
             new Request('http://do/broadcast', {
@@ -409,6 +417,7 @@ async function broadcastFinalGamePuttingState(
                 body: JSON.stringify(payload),
             }) as any
         )
+        .then(() => console.log('[lottery] broadcastFinalGamePuttingState: DO fetch resolved for', doName))
         .catch((err) => console.error('[lottery] final-game-putting broadcast failed:', err))
 }
 

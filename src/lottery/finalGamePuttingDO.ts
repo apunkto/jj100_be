@@ -109,6 +109,7 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
 
         const entry: StreamEntry = { write, close }
         this.streams.push(entry)
+        console.log('[FinalGamePuttingDO] handleGet: new stream added competitionId=', competitionId, 'total streams=', this.streams.length)
 
         const initialStateHeader = request.headers.get(INITIAL_STATE_HEADER)
         let state: FinalGamePuttingResponse | null = null
@@ -176,8 +177,11 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
         try {
             body = (await request.json()) as FinalGamePuttingResponse
         } catch {
+            console.warn('[FinalGamePuttingDO] handleBroadcast: Invalid JSON')
             return new Response('Invalid JSON', { status: 400 })
         }
+        const competitionId = parseCompetitionId(this.ctx.id)
+        console.log('[FinalGamePuttingDO] handleBroadcast: competitionId=', competitionId, 'streams=', this.streams.length, 'gameStatus=', body.puttingGame?.gameStatus)
         const msg = sseMessage(body)
         await this.broadcastToAll(msg)
         return new Response(JSON.stringify({ success: true }), {
@@ -186,20 +190,30 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
     }
 
     private removeStream(entry: StreamEntry): void {
+        const before = this.streams.length
         this.streams = this.streams.filter((s) => s !== entry)
+        if (this.streams.length < before) {
+            console.log('[FinalGamePuttingDO] removeStream: stream removed, remaining=', this.streams.length)
+        }
     }
 
     private async broadcastToAll(data: string): Promise<void> {
         const dead: StreamEntry[] = []
+        const n = this.streams.length
+        console.log('[FinalGamePuttingDO] broadcastToAll: writing to', n, 'stream(s)')
         await Promise.all(
-            this.streams.map(async (entry) => {
+            this.streams.map(async (entry, i) => {
                 try {
                     await entry.write(data)
-                } catch {
+                } catch (err) {
+                    console.warn('[FinalGamePuttingDO] broadcastToAll: stream', i, 'write failed', err)
                     dead.push(entry)
                 }
             })
         )
+        if (dead.length > 0) {
+            console.log('[FinalGamePuttingDO] broadcastToAll: removing', dead.length, 'dead stream(s), remaining=', this.streams.length - dead.length)
+        }
         dead.forEach((entry) => this.removeStream(entry))
     }
 }
