@@ -1,14 +1,15 @@
-import { DurableObject } from 'cloudflare:workers'
-import type { DurableObjectState } from '@cloudflare/workers-types'
-import type { Env } from '../shared/types'
-import { getFinalGameDrawState } from './finalGameState'
-import type { FinalGameDrawResponse } from './finalGameState'
-import { base64DecodeUtf8 } from './base64'
+import {DurableObject} from 'cloudflare:workers'
+import type {DurableObjectState} from '@cloudflare/workers-types'
+import type {Env} from '../shared/types'
+import type {FinalGameDrawResponse} from './finalGameState'
+import {getFinalGameDrawState} from './finalGameState'
+import {base64DecodeUtf8} from './base64'
 
 const INITIAL_STATE_HEADER = 'X-Initial-Final-Game-Draw-State'
 const COMPETITION_ID_HEADER = 'X-Competition-Id'
 
-const HEARTBEAT_INTERVAL_MS = 90_000
+/** Keep under Cloudflare stream idle timeout (~100s) and worker–DO RPC limit (~90s). */
+const HEARTBEAT_INTERVAL_MS = 25_000
 
 type StreamEntry = {
     write: (data: string) => Promise<void>
