@@ -62,13 +62,21 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
 
     async fetch(request: Request): Promise<Response> {
         const url = new URL(request.url)
-        if (request.method === 'POST' && url.pathname.endsWith('/broadcast')) {
-            return this.handleBroadcast(request)
+        try {
+            if (request.method === 'POST' && url.pathname.endsWith('/broadcast')) {
+                return await this.handleBroadcast(request)
+            }
+            if (request.method === 'GET') {
+                return await this.handleGet(request)
+            }
+            return new Response('Not Found', { status: 404 })
+        } catch (err) {
+            console.error('[FinalGamePuttingDO] fetch error', err)
+            return new Response(JSON.stringify({ error: String(err) }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' },
+            })
         }
-        if (request.method === 'GET') {
-            return this.handleGet(request)
-        }
-        return new Response('Not Found', { status: 404 })
     }
 
     private async handleGet(request: Request): Promise<Response> {
@@ -131,7 +139,12 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
                         await write(sseMessage({ puttingGame: { gameStatus: 'not_started', currentLevel: 1, currentTurnParticipantId: null, currentTurnName: null, winnerName: null, players: [] } })).catch(() => {})
                     }
                 } catch (e) {
-                    await write(sseMessage({ puttingGame: { gameStatus: 'not_started', currentLevel: 1, currentTurnParticipantId: null, currentTurnName: null, winnerName: null, players: [] } })).catch(() => {})
+                    console.error('[FinalGamePuttingDO] initial state send error', e)
+                    try {
+                        await write(sseMessage({ puttingGame: { gameStatus: 'not_started', currentLevel: 1, currentTurnParticipantId: null, currentTurnName: null, winnerName: null, players: [] } })).catch(() => {})
+                    } catch (_) {
+                        // ignore
+                    }
                 }
                 if (!this.heartbeatTimer) {
                     const scheduleNext = (): void => {
@@ -146,7 +159,7 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
                     }
                     scheduleNext()
                 }
-            })()
+            })().catch((err) => console.error('[FinalGamePuttingDO] waitUntil initial state rejected', err))
         )
 
         this.ctx.waitUntil(
@@ -160,7 +173,7 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
                         this.heartbeatTimer = null
                     }
                 }
-            })()
+            })().catch((err) => console.error('[FinalGamePuttingDO] waitUntil writer.closed rejected', err))
         )
 
         return new Response(readable, {
@@ -176,15 +189,23 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
         let body: FinalGamePuttingResponse
         try {
             body = (await request.json()) as FinalGamePuttingResponse
-        } catch {
-            console.warn('[FinalGamePuttingDO] handleBroadcast: Invalid JSON')
+        } catch (e) {
+            console.error('[FinalGamePuttingDO] handleBroadcast: Invalid JSON', e)
             return new Response('Invalid JSON', { status: 400 })
         }
         const competitionId = parseCompetitionId(this.ctx.id)
         const streamCount = this.streams.length
-        console.log('[FinalGamePuttingDO] handleBroadcast: competitionId=', competitionId, 'streams=', streamCount, 'gameStatus=', body.puttingGame?.gameStatus)
-        const msg = sseMessage(body)
-        await this.broadcastToAll(msg)
+        console.error('[FinalGamePuttingDO] handleBroadcast: competitionId=' + competitionId + ' streams=' + streamCount + ' gameStatus=' + (body.puttingGame?.gameStatus ?? '?'))
+        try {
+            const msg = sseMessage(body)
+            await this.broadcastToAll(msg)
+        } catch (e) {
+            console.error('[FinalGamePuttingDO] handleBroadcast broadcastToAll failed', e)
+            return new Response(JSON.stringify({ success: false, error: String(e) }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' },
+            })
+        }
         return new Response(
             JSON.stringify({ success: true, streamsWritten: streamCount }),
             { headers: { 'Content-Type': 'application/json' } }
@@ -202,19 +223,19 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
     private async broadcastToAll(data: string): Promise<void> {
         const dead: StreamEntry[] = []
         const n = this.streams.length
-        console.log('[FinalGamePuttingDO] broadcastToAll: writing to', n, 'stream(s)')
+        console.error('[FinalGamePuttingDO] broadcastToAll: writing to ' + n + ' stream(s)')
         await Promise.all(
             this.streams.map(async (entry, i) => {
                 try {
                     await entry.write(data)
                 } catch (err) {
-                    console.warn('[FinalGamePuttingDO] broadcastToAll: stream', i, 'write failed', err)
+                    console.error('[FinalGamePuttingDO] broadcastToAll: stream ' + i + ' write failed', err)
                     dead.push(entry)
                 }
             })
         )
         if (dead.length > 0) {
-            console.log('[FinalGamePuttingDO] broadcastToAll: removing', dead.length, 'dead stream(s), remaining=', this.streams.length - dead.length)
+            console.error('[FinalGamePuttingDO] broadcastToAll: removing ' + dead.length + ' dead stream(s)')
         }
         dead.forEach((entry) => this.removeStream(entry))
     }
