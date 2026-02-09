@@ -1,5 +1,4 @@
 import {DurableObject} from 'cloudflare:workers'
-import type {DurableObjectState} from '@cloudflare/workers-types'
 import type {Env} from '../shared/types'
 import type {FinalGamePuttingResponse} from './finalGameState'
 import {getFinalGamePuttingPayload} from './finalGameState'
@@ -7,6 +6,9 @@ import {base64DecodeUtf8} from './base64'
 
 const INITIAL_STATE_HEADER = 'X-Initial-Final-Game-Putting-State'
 const COMPETITION_ID_HEADER = 'X-Competition-Id'
+
+/** Minimal type for DO id (name/toString) to avoid mixing workers-types with cloudflare:workers runtime types. */
+type DurableObjectIdLike = { name?: string; toString(): string }
 
 /** Keep well under Cloudflare’s ~100s stream idle timeout and worker–DO RPC ~90s limit so the worker stays connected and can receive broadcasts. */
 const HEARTBEAT_INTERVAL_MS = 25_000
@@ -16,7 +18,7 @@ type StreamEntry = {
     close: () => void
 }
 
-function parseCompetitionId(id: DurableObjectState['id']): number | null {
+function parseCompetitionId(id: DurableObjectIdLike): number | null {
     // Try to get the name from the ID
     let name: string | undefined
     if ('name' in id && typeof id.name === 'string') {
@@ -57,7 +59,7 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
     private streams: StreamEntry[] = []
     private heartbeatTimer: ReturnType<typeof setTimeout> | null = null
 
-    constructor(ctx: DurableObjectState, env: Env) {
+    constructor(ctx: ConstructorParameters<typeof DurableObject<Env>>[0], env: Env) {
         super(ctx, env)
     }
 

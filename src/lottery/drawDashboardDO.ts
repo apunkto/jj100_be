@@ -1,5 +1,4 @@
 import {DurableObject} from 'cloudflare:workers'
-import type {DurableObjectState} from '@cloudflare/workers-types'
 import type {Env} from '../shared/types'
 import type {DrawStateResponse} from './drawState'
 import {getDrawState} from './drawState'
@@ -7,6 +6,9 @@ import {base64DecodeUtf8} from './base64'
 
 const INITIAL_DRAW_STATE_HEADER = 'X-Initial-Draw-State'
 const COMPETITION_ID_HEADER = 'X-Competition-Id'
+
+/** Minimal type for DO id to avoid mixing workers-types with cloudflare:workers runtime types. */
+type DurableObjectIdLike = { name?: string; toString(): string }
 
 /** Keep under Cloudflare stream idle timeout (~100s) and worker–DO RPC limit (~90s). */
 const HEARTBEAT_INTERVAL_MS = 25_000
@@ -16,7 +18,7 @@ type StreamEntry = {
     close: () => void
 }
 
-function parseCompetitionIdFromDoId(id: DurableObjectState['id']): number | null {
+function parseCompetitionIdFromDoId(id: DurableObjectIdLike): number | null {
     // Try to get the name from the ID
     let name: string | undefined
     if ('name' in id && typeof id.name === 'string') {
@@ -57,7 +59,7 @@ export class DrawDashboardDO extends DurableObject<Env> {
     private streams: StreamEntry[] = []
     private heartbeatTimer: ReturnType<typeof setTimeout> | null = null
 
-    constructor(ctx: DurableObjectState, env: Env) {
+    constructor(ctx: ConstructorParameters<typeof DurableObject<Env>>[0], env: Env) {
         super(ctx, env)
     }
 

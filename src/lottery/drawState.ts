@@ -1,5 +1,5 @@
-import type { Env } from '../shared/types'
-import { getCheckedInPlayers } from './service'
+import type {Env} from '../shared/types'
+import {getCheckedInPlayers} from './service'
 
 const KV_KEY_PREFIX = 'draw:'
 
@@ -47,7 +47,7 @@ export async function getDrawState(env: Env, competitionId: number): Promise<Dra
             : Math.max(participantCount, storedCount),
     }
 
-    if (hasActiveDraw) {
+    if (hasActiveDraw && value.countdownStartedAt != null) {
         const countdown = Math.max(0, 3 - Math.floor((Date.now() - value.countdownStartedAt) / 1000))
         response.countdown = countdown
         response.winnerName = value.winnerName
