@@ -126,16 +126,17 @@ router.post('/draw', async (c) => {
             participantNames: participantNames ?? [],
         })
         const payload = await getFinalGameDrawState(c.env, competitionId)
-        const doStub = c.env.FINAL_GAME_DRAW_DO.get(c.env.FINAL_GAME_DRAW_DO.idFromName(`final-game-draw-${competitionId}`))
-        void doStub
-            .fetch(
-                new Request('http://do/broadcast', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload),
-                }) as any
-            )
-            .catch((err) => console.error('[lottery/draw] final-game-draw broadcast failed:', err))
+        const doStub = c.env.FINAL_GAME_DRAW_DO.get(
+            c.env.FINAL_GAME_DRAW_DO.idFromName(`final-game-draw-${competitionId}`)
+        )
+
+        c.executionCtx.waitUntil(
+            doStub.fetch('https://do/broadcast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            }).catch((err) => console.error('[lottery/draw] final-game-draw broadcast failed:', err))
+        )
     } else {
         const countdownStartedAt = Date.now()
         const participantCount = await getEligibleDrawCount(c.env, competitionId)
