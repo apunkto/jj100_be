@@ -449,9 +449,7 @@ async function broadcastFinalGamePuttingState(
         return
     }
     const doName = `final-game-putting-${competitionId}`
-    console.log('[lottery] broadcastFinalGamePuttingState: sending to DO', doName, 'gameStatus=', (payload as {
-        puttingGame?: { gameStatus?: string }
-    }).puttingGame?.gameStatus)
+    console.log('[lottery] broadcastFinalGamePuttingState: sending to DO', doName, 'gameStatus=', payload)
     const doStub = env.FINAL_GAME_PUTTING_DO.get(env.FINAL_GAME_PUTTING_DO.idFromName(doName))
     try {
         const res = await doStub.fetch(
