@@ -19,6 +19,15 @@ export type FinalGameParticipant = {
     last_result: 'in' | 'out' | null
 }
 
+export type FinalGameParticipantDto = {
+    finalParticipantId: number
+    order: number
+    name: string
+    lastLevel: number
+    lastResult: 'in' | 'out' | null
+    status?: 'active' | 'out'
+}
+
 export const checkInPlayer = async (env: Env, player_id: number, metrixUserId: number, competitionId: number) => {
     const supabase = getSupabaseClient(env)
 

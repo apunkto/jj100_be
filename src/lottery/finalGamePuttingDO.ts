@@ -1,8 +1,7 @@
 import {DurableObject} from 'cloudflare:workers'
 import type {Env} from '../shared/types'
-import type {FinalGamePuttingResponse} from './finalGameState'
-import {getFinalGamePuttingPayload} from './finalGameState'
 import {base64DecodeUtf8} from './base64'
+import {PuttingGameState} from "./puttingGame";
 
 const INITIAL_STATE_HEADER = 'X-Initial-Final-Game-Putting-State'
 const COMPETITION_ID_HEADER = 'X-Competition-Id'
@@ -18,40 +17,7 @@ type StreamEntry = {
     close: () => void
 }
 
-function parseCompetitionId(id: DurableObjectIdLike): number | null {
-    // Try to get the name from the ID
-    let name: string | undefined
-    if ('name' in id && typeof id.name === 'string') {
-        name = id.name
-    } else {
-        // Fallback to toString, but check if it looks like a name
-        const str = id.toString()
-        if (str.includes('final-game-putting-')) {
-            name = str
-        } else {
-            // If toString doesn't contain the prefix, it's likely a numeric ID, which we can't parse
-            console.error('[FinalGamePuttingDO] Unable to parse competition ID from:', { id, name: id.name, toString: str })
-            return null
-        }
-    }
-    
-    const prefix = 'final-game-putting-'
-    if (!name.startsWith(prefix)) {
-        console.error('[FinalGamePuttingDO] ID name does not start with expected prefix:', { name, prefix })
-        return null
-    }
-    
-    const num = name.slice(prefix.length)
-    const parsed = parseInt(num, 10)
-    if (isNaN(parsed)) {
-        console.error('[FinalGamePuttingDO] Failed to parse competition ID number:', { name, num })
-        return null
-    }
-    
-    return parsed
-}
-
-function sseMessage(data: FinalGamePuttingResponse): string {
+function sseMessage(data: PuttingGameState): string {
     return `data: ${JSON.stringify(data)}\n\n`
 }
 
@@ -72,41 +38,19 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
             if (request.method === 'GET') {
                 return await this.handleGet(request)
             }
-            return new Response('Not Found', { status: 404 })
+            return new Response('Not Found', {status: 404})
         } catch (err) {
             console.error('[FinalGamePuttingDO] fetch error', err)
-            return new Response(JSON.stringify({ error: String(err) }), {
+            return new Response(JSON.stringify({error: String(err)}), {
                 status: 500,
-                headers: { 'Content-Type': 'application/json' },
+                headers: {'Content-Type': 'application/json'},
             })
         }
     }
 
     private async handleGet(request: Request): Promise<Response> {
-        // Try to get competition ID from header first (more reliable)
-        let competitionId: number | null = null
-        const competitionIdHeader = request.headers.get(COMPETITION_ID_HEADER)
-        if (competitionIdHeader) {
-            const parsed = parseInt(competitionIdHeader, 10)
-            if (!isNaN(parsed)) {
-                competitionId = parsed
-            }
-        }
-        
-        // Fallback to parsing from DO ID if header not available
-        if (competitionId === null) {
-            competitionId = parseCompetitionId(this.ctx.id)
-        }
-        
-        if (competitionId === null) {
-            return new Response(JSON.stringify({ error: 'Invalid competition' }), {
-                status: 400,
-                headers: { 'Content-Type': 'application/json' },
-            })
-        }
-
         const encoder = new TextEncoder()
-        const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>()
+        const {readable, writable} = new TransformStream<Uint8Array, Uint8Array>()
         const writer = writable.getWriter()
 
         const write = async (data: string) => {
@@ -115,18 +59,18 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
 
         const close = () => {
             this.removeStream(entry)
-            writer.close().catch(() => {})
+            writer.close().catch(() => {
+            })
         }
 
-        const entry: StreamEntry = { write, close }
+        const entry: StreamEntry = {write, close}
         this.streams.push(entry)
-        console.log('[FinalGamePuttingDO] handleGet: new stream added competitionId=', competitionId, 'total streams=', this.streams.length)
 
         const initialStateHeader = request.headers.get(INITIAL_STATE_HEADER)
-        let state: FinalGamePuttingResponse | null = null
+        let state: PuttingGameState | null = null
         if (initialStateHeader) {
             try {
-                state = JSON.parse(base64DecodeUtf8(initialStateHeader)) as FinalGamePuttingResponse
+                state = JSON.parse(base64DecodeUtf8(initialStateHeader)) as PuttingGameState
             } catch {
                 // ignore
             }
@@ -135,16 +79,34 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
         this.ctx.waitUntil(
             (async () => {
                 try {
-                    const resolvedState = state ?? (await getFinalGamePuttingPayload(this.env, competitionId))
+                    const resolvedState = state;
                     if (resolvedState) {
                         await write(sseMessage(resolvedState))
                     } else {
-                        await write(sseMessage({ puttingGame: { gameStatus: 'not_started', currentLevel: 1, currentTurnParticipantId: null, currentTurnName: null, winnerName: null, players: [] } })).catch(() => {})
+                        await write(sseMessage({
+                            status: 'not_started',
+                            currentLevel: 1,
+                            currentTurnParticipantId: null,
+                            currentTurnName: null,
+                            winnerName: null,
+                            winnerId: null,
+                            players: []
+                        })).catch(() => {
+                        })
                     }
                 } catch (e) {
                     console.error('[FinalGamePuttingDO] initial state send error', e)
                     try {
-                        await write(sseMessage({ puttingGame: { gameStatus: 'not_started', currentLevel: 1, currentTurnParticipantId: null, currentTurnName: null, winnerName: null, players: [] } })).catch(() => {})
+                        await write(sseMessage({
+                            status: 'not_started',
+                            currentLevel: 1,
+                            currentTurnParticipantId: null,
+                            currentTurnName: null,
+                            winnerName: null,
+                            winnerId: null,
+                            players: []
+                        })).catch(() => {
+                        })
                     } catch (_) {
                         // ignore
                     }
@@ -189,29 +151,27 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
     }
 
     private async handleBroadcast(request: Request): Promise<Response> {
-        let body: FinalGamePuttingResponse
+        let body: PuttingGameState
         try {
-            body = (await request.json()) as FinalGamePuttingResponse
+            body = (await request.json()) as PuttingGameState
         } catch (e) {
             console.error('[FinalGamePuttingDO] handleBroadcast: Invalid JSON', e)
-            return new Response('Invalid JSON', { status: 400 })
+            return new Response('Invalid JSON', {status: 400})
         }
-        const competitionId = parseCompetitionId(this.ctx.id)
         const streamCount = this.streams.length
-        console.error('[FinalGamePuttingDO] handleBroadcast: competitionId=' + competitionId + ' streams=' + streamCount + ' gameStatus=' + (body.puttingGame?.gameStatus ?? '?'))
         try {
             const msg = sseMessage(body)
             await this.broadcastToAll(msg)
         } catch (e) {
             console.error('[FinalGamePuttingDO] handleBroadcast broadcastToAll failed', e)
-            return new Response(JSON.stringify({ success: false, error: String(e) }), {
+            return new Response(JSON.stringify({success: false, error: String(e)}), {
                 status: 500,
-                headers: { 'Content-Type': 'application/json' },
+                headers: {'Content-Type': 'application/json'},
             })
         }
         return new Response(
-            JSON.stringify({ success: true, streamsWritten: streamCount }),
-            { headers: { 'Content-Type': 'application/json' } }
+            JSON.stringify({success: true, streamsWritten: streamCount}),
+            {headers: {'Content-Type': 'application/json'}}
         )
     }
 
@@ -226,7 +186,7 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
     private async broadcastToAll(data: string): Promise<void> {
         const dead: StreamEntry[] = []
         const n = this.streams.length
-        console.error('[FinalGamePuttingDO] broadcastToAll: writing to ' + n + ' stream(s)')
+        console.debug('[FinalGamePuttingDO] broadcastToAll: writing to ' + n + ' stream(s)')
         await Promise.all(
             this.streams.map(async (entry, i) => {
                 try {
@@ -238,7 +198,7 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
             })
         )
         if (dead.length > 0) {
-            console.error('[FinalGamePuttingDO] broadcastToAll: removing ' + dead.length + ' dead stream(s)')
+            console.warn('[FinalGamePuttingDO] broadcastToAll: removing ' + dead.length + ' dead stream(s)')
         }
         dead.forEach((entry) => this.removeStream(entry))
     }

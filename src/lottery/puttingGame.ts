@@ -1,23 +1,15 @@
 import type {Env} from '../shared/types'
 import {getSupabaseClient} from '../shared/supabase'
-import type {FinalGameParticipant} from './service'
-import {getFinalGameParticipants} from './service'
+import type {FinalGameParticipant, FinalGameParticipantDto} from './service'
 
 export type PuttingGameState = {
     status: 'not_started' | 'running' | 'finished'
     currentLevel: number
-    currentTurnFinalGameId: number | null
+    currentTurnParticipantId: number | null
     currentTurnName: string | null
-    winnerFinalGameId: number | null
+    winnerId: number | null
     winnerName: string | null
-    players: {
-        finalGameId: number
-        order: number
-        name: string
-        status: 'active' | 'out'
-        lastLevel: number
-        lastResult: 'in' | 'out' | null
-    }[]
+    players: FinalGameParticipantDto[]
 }
 
 type StateRow = {
@@ -29,15 +21,18 @@ type StateRow = {
     winner_final_game_participant_id: number | null
 }
 
-async function getGameState(env: Env, competitionId: number): Promise<{ state: StateRow | null; error: string | null }> {
+async function getGameState(env: Env, competitionId: number): Promise<{
+    state: StateRow | null;
+    error: string | null
+}> {
     const supabase = getSupabaseClient(env)
-    const { data, error } = await supabase
+    const {data, error} = await supabase
         .from('final_game_state')
         .select('id, metrix_competition_id, status, current_level, current_turn_final_game_participant_id, winner_final_game_participant_id')
         .eq('metrix_competition_id', competitionId)
         .maybeSingle()
-    if (error) return { state: null, error: error.message }
-    return { state: data as StateRow | null, error: null }
+    if (error) return {state: null, error: error.message}
+    return {state: data as StateRow | null, error: null}
 }
 
 function getNextActiveInOrder(
@@ -58,17 +53,19 @@ function getNextActiveInOrder(
     return null
 }
 
-export async function getPuttingGameState(env: Env, competitionId: number): Promise<{
+export async function getPuttingGameState(
+    env: Env,
+    competitionId: number,
+    options: { participants: FinalGameParticipant[] }
+): Promise<{
     state: PuttingGameState | null
     error: string | null
 }> {
-    const { state: gameState, error: stateErr } = await getGameState(env, competitionId)
-    if (stateErr) return { state: null, error: stateErr }
+    const {state: gameState, error: stateErr} = await getGameState(env, competitionId)
+    if (stateErr) return {state: null, error: stateErr}
 
-    const { data: participants, error: partErr } = await getFinalGameParticipants(env, competitionId)
-    if (partErr || !participants) return { state: null, error: (partErr as { message?: string } | null)?.message ?? 'No participants' }
+    let participants = options?.participants
 
-    const ordered = [...participants].sort((a, b) => a.final_game_order - b.final_game_order)
     const nameById = new Map(participants.map((p) => [p.id, p.player.name]))
 
     if (!gameState) {
@@ -76,31 +73,22 @@ export async function getPuttingGameState(env: Env, competitionId: number): Prom
             state: {
                 status: 'not_started',
                 currentLevel: 1,
-                currentTurnFinalGameId: null,
+                currentTurnParticipantId: null,
                 currentTurnName: null,
-                winnerFinalGameId: null,
+                winnerId: null,
                 winnerName: null,
-                players: ordered.map((p) => ({
-                    finalGameId: p.id,
-                    order: p.final_game_order,
+                players: participants.map(  p => ({
+                    finalParticipantId: p.id,
                     name: p.player.name,
-                    status: 'active' as const,
+                    order: p.final_game_order,
+                    playerId: p.player.id,
                     lastLevel: p.last_level,
                     lastResult: p.last_result,
-                })),
+                } as FinalGameParticipantDto) ),
             },
             error: null,
         }
     }
-
-    const players: PuttingGameState['players'] = ordered.map((p) => ({
-        finalGameId: p.id,
-        order: p.final_game_order,
-        name: p.player.name,
-        status: (p.last_result === 'out' ? 'out' : 'active') as 'active' | 'out',
-        lastLevel: p.last_level,
-        lastResult: p.last_result,
-    }))
 
     const currentTurnName = gameState.current_turn_final_game_participant_id
         ? nameById.get(gameState.current_turn_final_game_participant_id) ?? null
@@ -113,59 +101,37 @@ export async function getPuttingGameState(env: Env, competitionId: number): Prom
         state: {
             status: gameState.status as PuttingGameState['status'],
             currentLevel: gameState.current_level,
-            currentTurnFinalGameId: gameState.current_turn_final_game_participant_id,
+            currentTurnParticipantId: gameState.current_turn_final_game_participant_id,
             currentTurnName,
-            winnerFinalGameId: gameState.winner_final_game_participant_id,
+            winnerId: gameState.winner_final_game_participant_id,
             winnerName,
-            players,
+            players: participants.map(  p => ({
+                finalParticipantId: p.id,
+                name: p.player.name,
+                order: p.final_game_order,
+                playerId: p.player.id,
+                lastLevel: p.last_level,
+                lastResult: p.last_result,
+                status: p.last_result === 'out' ? 'out' : gameState.status === 'finished' && p.id === gameState.winner_final_game_participant_id ? 'winner' : 'active',
+            } as FinalGameParticipantDto) ),
         },
         error: null,
     }
 }
 
-/** Converts PuttingGameState to the broadcast payload shape (FinalGamePuttingResponse). */
-export function puttingStateToResponse(state: PuttingGameState): { puttingGame: {
-    gameStatus: PuttingGameState['status']
-    currentLevel: number
-    currentTurnParticipantId: number | null
-    currentTurnName: string | null
-    winnerName: string | null
-    players: { id: number; order: number; name: string; status: 'active' | 'out'; lastLevel: number; lastResult: 'in' | 'out' | null }[]
-} } {
-    return {
-        puttingGame: {
-            gameStatus: state.status,
-            currentLevel: state.currentLevel,
-            currentTurnParticipantId: state.currentTurnFinalGameId,
-            currentTurnName: state.currentTurnName,
-            winnerName: state.winnerName,
-            players: state.players.map((p) => ({
-                id: p.finalGameId,
-                order: p.order,
-                name: p.name,
-                status: p.status,
-                lastLevel: p.lastLevel,
-                lastResult: p.lastResult,
-            })),
-        },
-    }
-}
 
-export async function startPuttingGame(env: Env, competitionId: number): Promise<{ error: string | null }> {
+export async function startPuttingGame(env: Env, competitionId: number,
+                                       participants: FinalGameParticipant[]): Promise<{ error: string | null }> {
     const supabase = getSupabaseClient(env)
-    const { data: participants } = await getFinalGameParticipants(env, competitionId)
-    if (!participants || participants.length !== 10) {
-        return { error: 'Exactly 10 participants required' }
-    }
 
     const ordered = [...participants].sort((a, b) => a.final_game_order - b.final_game_order)
     const firstId = ordered[0]!.id
 
-    const { state: gameState } = await getGameState(env, competitionId)
+    const {state: gameState} = await getGameState(env, competitionId)
     const now = new Date().toISOString()
 
     if (gameState) {
-        const { error } = await supabase
+        const {error} = await supabase
             .from('final_game_state')
             .update({
                 status: 'running',
@@ -177,9 +143,9 @@ export async function startPuttingGame(env: Env, competitionId: number): Promise
                 updated_at: now,
             })
             .eq('id', gameState.id)
-        if (error) return { error: error.message }
+        if (error) return {error: error.message}
     } else {
-        const { error } = await supabase.from('final_game_state').insert({
+        const {error} = await supabase.from('final_game_state').insert({
             metrix_competition_id: competitionId,
             status: 'running',
             current_level: 1,
@@ -187,35 +153,39 @@ export async function startPuttingGame(env: Env, competitionId: number): Promise
             started_at: now,
             updated_at: now,
         })
-        if (error) return { error: error.message }
+        if (error) return {error: error.message}
     }
 
-    const { error: resetErr } = await supabase
+    const {error: resetErr} = await supabase
         .from('final_game_participant')
-        .update({ last_level: 0, last_result: null })
+        .update({last_level: 0, last_result: null})
         .eq('metrix_competition_id', competitionId)
-    if (resetErr) return { error: resetErr.message }
+    if (resetErr) return {error: resetErr.message}
 
-    return { error: null }
+    return {error: null}
 }
 
-export async function resetPuttingGame(env: Env, competitionId: number): Promise<{ error: string | null }> {
+export async function resetPuttingGame(env: Env, competitionId: number, participants: FinalGameParticipant[]): Promise<{
+    error: string | null
+}> {
     const supabase = getSupabaseClient(env)
-    const { state: gameState } = await getGameState(env, competitionId)
+    const {state: gameState} = await getGameState(env, competitionId)
     if (gameState) {
-        const { error: deleteErr } = await supabase.from('final_game_state').delete().eq('id', gameState.id)
-        if (deleteErr) return { error: deleteErr.message }
+        const {error: deleteErr} = await supabase.from('final_game_state').delete().eq('id', gameState.id)
+        if (deleteErr) return {error: deleteErr.message}
     }
-    return startPuttingGame(env, competitionId)
+    return startPuttingGame(env, competitionId, participants)
 }
 
 export async function recordPuttingResult(
     env: Env,
     competitionId: number,
     participantId: number,
-    result: 'in' | 'out'
-): Promise<{ error: string | null; payload?: ReturnType<typeof puttingStateToResponse> }> {
+    result: 'in' | 'out',
+    participants: FinalGameParticipant[]
+): Promise<{ error: string | null; payload?: PuttingGameState | null }> {
     const supabase = getSupabaseClient(env)
+
     const { state: gameState, error: stateErr } = await getGameState(env, competitionId)
     if (stateErr || !gameState || gameState.status !== 'running') {
         return { error: stateErr ?? 'Game not running' }
@@ -227,32 +197,51 @@ export async function recordPuttingResult(
         }
     }
 
-    const currentLevel = gameState.current_level
     const now = new Date().toISOString()
+    const currentLevel = gameState.current_level
 
-    const { error: updateErr } = await supabase
+    // O(1) access helpers (index map is stable; we patch by index)
+    const idxById = new Map<number, number>()
+    for (let i = 0; i < participants.length; i++) idxById.set(participants[i]!.id, i)
+
+    const getP = (id: number): FinalGameParticipant | null => {
+        const idx = idxById.get(id)
+        return idx == null ? null : participants[idx] ?? null
+    }
+
+    // 2) Update single participant AND patch in-memory from returned row
+    const { data: updatedP, error: updateErr } = await supabase
         .from('final_game_participant')
         .update({ last_level: currentLevel, last_result: result })
         .eq('id', participantId)
         .eq('metrix_competition_id', competitionId)
+        .select('id,last_level,last_result')
+        .single()
+
     if (updateErr) return { error: updateErr.message }
+    if (!updatedP) return { error: 'Failed to update participant' }
 
-    const { data: participants } = await getFinalGameParticipants(env, competitionId)
-    if (!participants || participants.length === 0) return { error: 'No participants' }
-
-    const ordered = [...participants].sort((a, b) => a.final_game_order - b.final_game_order)
-
-    const isActive = (p: FinalGameParticipant) => {
-        const lr = p.id === participantId ? result : p.last_result
-        return lr !== 'out'
+    {
+        const idx = idxById.get(updatedP.id)
+        if (idx == null) return { error: 'Participant not found in list' }
+        // patch only the changed fields (keep player/order fields intact)
+        participants[idx] = {
+            ...participants[idx]!,
+            last_level: updatedP.last_level,
+            last_result: updatedP.last_result,
+        }
     }
 
-    const nextParticipant = getNextActiveInOrder(ordered, participantId, isActive)
-    const activeCount = ordered.filter(isActive).length
+    const isActive = (p: FinalGameParticipant) => p.last_result !== 'out'
+
+    const nextParticipant = getNextActiveInOrder(participants, participantId, isActive)
+    const activeCount = participants.reduce((acc, p) => acc + (p.last_result !== 'out' ? 1 : 0), 0)
 
     if (!nextParticipant) {
         if (activeCount === 1) {
-            const winner = ordered.find(isActive)!
+            const winner = participants.find((p) => p.last_result !== 'out')
+            if (!winner) return { error: 'Unexpected state' }
+
             const { error: finishErr } = await supabase
                 .from('final_game_state')
                 .update({
@@ -264,38 +253,61 @@ export async function recordPuttingResult(
                 })
                 .eq('id', gameState.id)
             if (finishErr) return { error: finishErr.message }
-            const { state: next } = await getPuttingGameState(env, competitionId)
-            return { error: null, payload: next ? puttingStateToResponse(next) : undefined }
+
+            const { state: next } = await getPuttingGameState(env, competitionId, { participants })
+            return { error: null, payload: next }
         }
+
         if (activeCount === 0) {
             const attemptedThisRoundIds = [
                 participantId,
-                ...ordered.filter((p) => p.id !== participantId && p.last_level === currentLevel).map((p) => p.id),
+                ...participants
+                    .filter((p) => p.id !== participantId && p.last_level === currentLevel)
+                    .map((p) => p.id),
             ]
             const prevLevel = Math.max(0, currentLevel - 1)
-            const { error: revertErr } = await supabase
+
+            // 3) Bulk update revert AND patch in-memory from returned rows
+            const { data: reverted, error: revertErr } = await supabase
                 .from('final_game_participant')
                 .update({ last_level: prevLevel, last_result: prevLevel > 0 ? 'in' : null })
                 .in('id', attemptedThisRoundIds)
                 .eq('metrix_competition_id', competitionId)
+                .select('id,last_level,last_result')
             if (revertErr) return { error: revertErr.message }
+
+            if (reverted) {
+                for (const r of reverted) {
+                    const idx = idxById.get(r.id)
+                    if (idx != null) {
+                        participants[idx] = {
+                            ...participants[idx]!,
+                            last_level: r.last_level,
+                            last_result: r.last_result,
+                        }
+                    }
+                }
+            }
+
             const { error: turnErr } = await supabase
                 .from('final_game_state')
                 .update({
-                    current_turn_final_game_participant_id: ordered[0]!.id,
+                    current_turn_final_game_participant_id: participants[0]!.id,
                     updated_at: now,
                 })
                 .eq('id', gameState.id)
             if (turnErr) return { error: turnErr.message }
-            const { state: next } = await getPuttingGameState(env, competitionId)
-            return { error: null, payload: next ? puttingStateToResponse(next) : undefined }
+
+            const { state: next } = await getPuttingGameState(env, competitionId, { participants })
+            return { error: null, payload: next }
         }
+
         return { error: 'Unexpected state' }
     }
 
-    const roundComplete = ordered.filter(isActive).every(
-        (p) => (p.id === participantId ? currentLevel : p.last_level) === currentLevel
-    )
+    const roundComplete = participants
+        .filter((p) => p.last_result !== 'out')
+        .every((p) => p.last_level === currentLevel)
 
     if (!roundComplete) {
         const { error: turnErr } = await supabase
@@ -306,24 +318,27 @@ export async function recordPuttingResult(
             })
             .eq('id', gameState.id)
         if (turnErr) return { error: turnErr.message }
-        const { state: next } = await getPuttingGameState(env, competitionId)
-        return { error: null, payload: next ? puttingStateToResponse(next) : undefined }
+        const { state: next } = await getPuttingGameState(env, competitionId, { participants })
+        return { error: null, payload: next }
     }
 
-    const firstActive = ordered.find(isActive)!
+    const firstActive = participants.find((p) => p.last_result !== 'out')
+    if (!firstActive) return { error: 'Unexpected state' }
+
     const attemptedThisRoundIds = [
         participantId,
-        ...ordered.filter((p) => p.id !== participantId && p.last_level === currentLevel).map((p) => p.id),
+        ...participants
+            .filter((p) => p.id !== participantId && p.last_level === currentLevel)
+            .map((p) => p.id),
     ]
-    const madeCount = attemptedThisRoundIds.filter(
-        (id) => (id === participantId ? result === 'in' : participants.find((p) => p.id === id)?.last_result === 'in')
-    ).length
+
+    const madeCount = attemptedThisRoundIds.reduce((acc, id) => acc + ((getP(id)?.last_result ?? null) === 'in' ? 1 : 0), 0)
 
     if (madeCount >= 1) {
         if (madeCount === 1) {
-            const winner = attemptedThisRoundIds.find(
-                (id) => id === participantId ? result === 'in' : participants.find((p) => p.id === id)?.last_result === 'in'
-            )!
+            const winner = attemptedThisRoundIds.find((id) => (getP(id)?.last_result ?? null) === 'in')
+            if (winner == null) return { error: 'Unexpected state' }
+
             const { error: finishErr } = await supabase
                 .from('final_game_state')
                 .update({
@@ -335,9 +350,11 @@ export async function recordPuttingResult(
                 })
                 .eq('id', gameState.id)
             if (finishErr) return { error: finishErr.message }
-            const { state: next } = await getPuttingGameState(env, competitionId)
-            return { error: null, payload: next ? puttingStateToResponse(next) : undefined }
+
+            const { state: next } = await getPuttingGameState(env, competitionId, { participants })
+            return { error: null, payload: next }
         }
+
         const newLevel = currentLevel + 1
         const { error: advanceErr } = await supabase
             .from('final_game_state')
@@ -348,26 +365,45 @@ export async function recordPuttingResult(
             })
             .eq('id', gameState.id)
         if (advanceErr) return { error: advanceErr.message }
-        const { state: next } = await getPuttingGameState(env, competitionId)
-        return { error: null, payload: next ? puttingStateToResponse(next) : undefined }
+
+        const { state: next } = await getPuttingGameState(env, competitionId, { participants })
+        return { error: null, payload: next }
     }
 
+    // Nobody made it: revert this round
     const prevLevel = Math.max(0, currentLevel - 1)
-    const { error: revertErr } = await supabase
+
+    // 3) Bulk update revert AND patch in-memory from returned rows
+    const { data: reverted, error: revertErr } = await supabase
         .from('final_game_participant')
         .update({ last_level: prevLevel, last_result: prevLevel > 0 ? 'in' : null })
         .in('id', attemptedThisRoundIds)
         .eq('metrix_competition_id', competitionId)
+        .select('id,last_level,last_result')
     if (revertErr) return { error: revertErr.message }
+
+    if (reverted) {
+        for (const r of reverted) {
+            const idx = idxById.get(r.id)
+            if (idx != null) {
+                participants[idx] = {
+                    ...participants[idx]!,
+                    last_level: r.last_level,
+                    last_result: r.last_result,
+                }
+            }
+        }
+    }
 
     const { error: turnErr } = await supabase
         .from('final_game_state')
         .update({
-            current_turn_final_game_participant_id: ordered[0]!.id,
+            current_turn_final_game_participant_id: participants[0]!.id,
             updated_at: now,
         })
         .eq('id', gameState.id)
     if (turnErr) return { error: turnErr.message }
-    const { state: next } = await getPuttingGameState(env, competitionId)
-    return { error: null, payload: next ? puttingStateToResponse(next) : undefined }
+
+    const { state: next } = await getPuttingGameState(env, competitionId, { participants })
+    return { error: null, payload: next }
 }

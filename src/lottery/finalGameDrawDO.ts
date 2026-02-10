@@ -1,7 +1,7 @@
 import {DurableObject} from 'cloudflare:workers'
 import type {Env} from '../shared/types'
-import type {FinalGameDrawResponse} from './finalGameState'
-import {getFinalGameDrawState} from './finalGameState'
+import type {FinalGameDrawResponse} from './finalGameDrawState'
+import {getFinalGameDrawState} from './finalGameDrawState'
 import {base64DecodeUtf8} from './base64'
 
 const INITIAL_STATE_HEADER = 'X-Initial-Final-Game-Draw-State'
