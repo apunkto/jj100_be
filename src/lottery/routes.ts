@@ -396,9 +396,19 @@ router.post('/final-game/game/attempt', async (c) => {
     if (!participants || participants.length !== 10) {
         return c.json({error: 'Exactly 10 participants required'}, 400)
     }
-    const {error, payload} = await recordPuttingResult(c.env, user.activeCompetitionId, participantId, result, participants)
+    const {
+        error,
+        payload
+    } = await recordPuttingResult(c.env, user.activeCompetitionId, participantId, result, participants)
     if (error) return c.json({error}, 400)
-    void broadcastFinalGamePuttingState(c.env, user.activeCompetitionId, participants, payload)
+    c.executionCtx.waitUntil(
+        broadcastFinalGamePuttingState(
+            c.env,
+            user.activeCompetitionId,
+            participants,
+            payload // payloadOverride
+        )
+    )
     return c.json(payload)
 })
 
@@ -454,7 +464,7 @@ async function broadcastFinalGamePuttingState(
     try {
         const res = await doStub.fetch('https://do/broadcast', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(payload),
         })
         const text = await (res as { text(): Promise<string>; status: number }).text()
