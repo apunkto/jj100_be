@@ -363,7 +363,9 @@ router.post('/final-game/game/start', async (c) => {
 
     const {error} = await startPuttingGame(c.env, user.activeCompetitionId, participants)
     if (error) return c.json({error}, 400)
-    void broadcastFinalGamePuttingState(c.env, user.activeCompetitionId, participants)
+    c.executionCtx.waitUntil(
+        broadcastFinalGamePuttingState(c.env, user.activeCompetitionId, participants)
+    )
     return c.json({success: true})
 })
 
@@ -376,7 +378,9 @@ router.post('/final-game/game/reset', async (c) => {
     }
     const {error} = await resetPuttingGame(c.env, user.activeCompetitionId, participants)
     if (error) return c.json({error}, 400)
-    void broadcastFinalGamePuttingState(c.env, user.activeCompetitionId, participants)
+    c.executionCtx.waitUntil(
+        broadcastFinalGamePuttingState(c.env, user.activeCompetitionId, participants)
+    )
     return c.json({success: true})
 })
 
