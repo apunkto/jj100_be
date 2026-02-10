@@ -146,21 +146,24 @@ router.post('/draw', async (c) => {
             winnerName,
             participantNames: participantNames ?? [],
         })
-        const doStub = c.env.DRAW_DASHBOARD_DO.get(c.env.DRAW_DASHBOARD_DO.idFromName(`draw-${competitionId}`))
-        void doStub
-            .fetch(
-                new Request('http://do/broadcast', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        participantCount,
-                        countdownStartedAt,
-                        winnerName,
-                        participantNames: participantNames ?? []
-                    }),
-                }) as any
-            )
-            .catch((err) => console.error('[lottery/draw] broadcast to dashboard failed:', err))
+        const doStub = c.env.DRAW_DASHBOARD_DO.get(
+            c.env.DRAW_DASHBOARD_DO.idFromName(`draw-${competitionId}`)
+        )
+
+        const msg = {
+            participantCount,
+            countdownStartedAt,
+            winnerName,
+            participantNames: participantNames ?? [],
+        }
+
+        c.executionCtx.waitUntil(
+            doStub.fetch('https://do/broadcast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(msg),
+            }).catch((err) => console.error('[lottery/draw] broadcast to dashboard failed:', err))
+        )
     }
 
     return c.json(data)
