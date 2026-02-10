@@ -11,7 +11,7 @@ const COMPETITION_ID_HEADER = 'X-Competition-Id'
 type DurableObjectIdLike = { name?: string; toString(): string }
 
 /** Keep under Cloudflare stream idle timeout (~100s) and worker–DO RPC limit (~90s). */
-const HEARTBEAT_INTERVAL_MS = 29_000
+const HEARTBEAT_INTERVAL_MS = 25_000
 
 type StreamEntry = {
     write: (data: string) => Promise<void>
