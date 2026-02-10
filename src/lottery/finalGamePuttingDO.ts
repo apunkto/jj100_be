@@ -30,6 +30,7 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
     }
 
     async fetch(request: Request): Promise<Response> {
+        console.log('[FinalGamePuttingDO] instance', this.ctx.id.toString(), 'path', new URL(request.url).pathname)
         const url = new URL(request.url)
         try {
             if (request.method === 'POST' && url.pathname.endsWith('/broadcast')) {
@@ -151,6 +152,7 @@ export class FinalGamePuttingDO extends DurableObject<Env> {
     }
 
     private async handleBroadcast(request: Request): Promise<Response> {
+        console.log('[FinalGamePuttingDO] broadcast to', this.ctx.id.toString(), 'streams=', this.streams.length)
         let body: PuttingGameState
         try {
             body = (await request.json()) as PuttingGameState
