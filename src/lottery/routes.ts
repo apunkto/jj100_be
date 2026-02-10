@@ -452,13 +452,11 @@ async function broadcastFinalGamePuttingState(
     console.log('[lottery] broadcastFinalGamePuttingState: sending to DO', doName, 'gameStatus=', payload)
     const doStub = env.FINAL_GAME_PUTTING_DO.get(env.FINAL_GAME_PUTTING_DO.idFromName(doName))
     try {
-        const res = await doStub.fetch(
-            new Request('http://do/broadcast', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload),
-            }) as any
-        )
+        const res = await doStub.fetch('https://do/broadcast', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        })
         const text = await (res as { text(): Promise<string>; status: number }).text()
         const status = (res as { status: number }).status
         let parsed: { success?: boolean; streamsWritten?: number } = {}
