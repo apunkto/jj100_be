@@ -13,6 +13,7 @@ router.post('/pre-login', async (c) => {
     const parsed = await parseJsonBody(() => c.req.json(), authPreLoginSchema)
     if (!parsed.success) return c.json({success: false, error: parsed.error}, 400)
     const email = parsed.data.email
+    const fetchMetrixIfNewUser = parsed.data.fetchMetrixIfNewUser === true
 
     // Check if player exists in DB
     const inDb = await checkPlayerExistsByEmail(c.env, email)
@@ -21,8 +22,14 @@ router.post('/pre-login', async (c) => {
         return c.json({success: true, data: {inDb: true}})
     }
 
-    // Not in DB: fetch from Metrix and cache
-    const identities = await fetchMetrixIdentityByEmail(email)
+    if (!fetchMetrixIfNewUser) {
+        return c.json({
+            success: true,
+            data: {inDb: false, needsMetrixConsent: true},
+        })
+    }
+
+    const identities = await fetchMetrixIdentityByEmail(c.env, email)
     await cacheMetrixIdentities(email, identities)
 
     return c.json({success: true, data: {inDb: false, identities}})
@@ -38,7 +45,7 @@ router.post('/register-from-metrix', async (c) => {
     
     // If cache miss, fetch from Metrix (fallback)
     if (!identities) {
-        identities = await fetchMetrixIdentityByEmail(email)
+        identities = await fetchMetrixIdentityByEmail(c.env, email)
         // Optionally write back to cache for retries
         await cacheMetrixIdentities(email, identities)
     }

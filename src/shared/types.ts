@@ -1,8 +1,10 @@
-import type { DurableObjectNamespace } from '@cloudflare/workers-types'
+import type {DurableObjectNamespace} from '@cloudflare/workers-types'
 
 export type Env = {
     SUPABASE_URL: string
     SUPABASE_SERVICE_ROLE_KEY: string
+    /** Disc Golf Metrix Alps API — set via `wrangler secret put METRIX_ALPS_INTEGRATION_CODE` or `.dev.vars` */
+    METRIX_ALPS_INTEGRATION_CODE?: string
     DRAW_STATE: KVNamespace
     DRAW_DASHBOARD_DO: DurableObjectNamespace
     FINAL_GAME_STATE: KVNamespace

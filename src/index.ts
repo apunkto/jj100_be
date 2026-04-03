@@ -22,7 +22,6 @@ import {FinalGamePuttingDO} from './lottery/finalGamePuttingDO'
 export {DrawDashboardDO, FinalGameDrawDO, FinalGamePuttingDO}
 
 const PUBLIC_PATHS = [
-    /^\/metrix\/check-email$/,
     /^\/auth\/pre-login$/,
     /^\/auth\/register-from-metrix$/,
     /^\/admin\/run-metrix$/,

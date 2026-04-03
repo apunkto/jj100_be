@@ -1,10 +1,9 @@
 import {Hono} from 'hono'
 import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
-import {fetchMetrixIdentityByEmail, getCurrentHole} from './service'
+import {getCurrentHole} from './service'
 import {getCompetitionStats, getMetrixPlayerStats, getMyDivisionResult, getTopPlayersByDivision,} from './statsService'
 import {verifyCompetitionAccess} from '../shared/competitionAccess'
-import {metrixCheckEmailSchema, parseJsonBody} from '../shared/validation'
 
 type HonoVars = { user: PlayerIdentity }
 const router = new Hono<{ Bindings: Env; Variables: HonoVars }>()
@@ -63,15 +62,6 @@ router.get('/competition/:id/stats', async (c) => {
     const { data, error } = await getCompetitionStats(c.env, competitionId)
     if (error) return c.json({ success: false, error }, 500)
     return c.json({ success: true, data: data ?? { playerCount: 0, mostHolesLeft: 0, finishedPlayersCount: 0, totalThrows: 0, averageDiff: 0, lakeOBCount: 0, lakePlayersCount: 0, totalHoles: 0, longestStreaks: [], longestAces: [] } })
-})
-
-router.post('/check-email', async (c) => {
-    const parsed = await parseJsonBody(() => c.req.json(), metrixCheckEmailSchema)
-    if (!parsed.success) return c.json({success: false, error: parsed.error}, 400)
-
-    const identities = await fetchMetrixIdentityByEmail(parsed.data.email)
-    const metrixUserId = identities.length === 1 ? identities[0].userId : null
-    return c.json({success: true, data: {metrixUserId, identities}})
 })
 
 router.get('/player/stats', async (c) => {

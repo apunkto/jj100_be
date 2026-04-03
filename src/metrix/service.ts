@@ -2,6 +2,20 @@ import {getSupabaseClient} from "../shared/supabase";
 import type {Env} from "../shared/types";
 import {getPlayerResult} from "./statsService";
 
+const METRIX_ALPS_API_BASE = "https://alps.discgolfmetrix.com/api";
+
+/** Alps `user.show` — https://alps.discgolfmetrix.com/docs/api#/operations/user.show */
+interface AlpsUserResource {
+  id: number;
+  email: string;
+  name: string;
+  rating: number | null;
+}
+
+interface AlpsUserShowResponse {
+  data: AlpsUserResource[];
+}
+
 // Types for Metrix API Response
 export interface HoleResult {
   Result: string;
@@ -81,6 +95,21 @@ interface MetrixAPIResponse {
 }
 
 // Helpers for updateHoleStatsFromMetrix
+/** Metrix scorecard holes (strokes/diff/penalty) — not CTP; used to avoid deleting rows that still hold round data. */
+function hasScorecardHoleData(playerResults: unknown): boolean {
+  if (!Array.isArray(playerResults)) return false;
+  for (const el of playerResults) {
+    if (el == null || typeof el !== "object") continue;
+    const hole = el as HoleResult;
+    const result = String(hole.Result ?? "").trim();
+    if (result !== "") return true;
+    if (typeof hole.Diff === "number" && Number.isFinite(hole.Diff)) return true;
+    const pen = String(hole.PEN ?? "").trim();
+    if (pen !== "" && pen !== "0") return true;
+  }
+  return false;
+}
+
 function hasOb(hole: HoleResult | undefined): boolean {
   if (hole == null) return false;
   const pen = String(hole.PEN ?? "").trim();
@@ -169,16 +198,55 @@ function accumulateHoleStat(
 }
 
 export async function fetchMetrixIdentityByEmail(
+  env: Env,
   email: string
 ): Promise<MetrixIdentity[]> {
-  // demo: return list of identities for apunkto@gmail.com
-  if (email.toLowerCase() === "apunkto@gmail.com") {
-    return [
-      { userId: 753, name: "Eivo Kisand" },
-      { userId: 228, name: "Anti Orgla" },
-    ];
+  const code = env.METRIX_ALPS_INTEGRATION_CODE?.trim();
+  if (!code) {
+    console.warn("[Metrix Alps] METRIX_ALPS_INTEGRATION_CODE is not configured");
+    return [];
   }
-  return [];
+
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return [];
+
+  const url = new URL(`${METRIX_ALPS_API_BASE}/user`);
+  url.searchParams.set("email", normalized);
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      "X-Integration-Code": code,
+      Accept: "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    console.error(
+      "[Metrix Alps] user.show failed:",
+      res.status,
+      res.statusText,
+      detail.slice(0, 500)
+    );
+    return [];
+  }
+
+  let body: AlpsUserShowResponse;
+  try {
+    body = (await res.json()) as AlpsUserShowResponse;
+  } catch {
+    console.error("[Metrix Alps] user.show: invalid JSON");
+    return [];
+  }
+
+  const items = body?.data;
+  if (!Array.isArray(items)) return [];
+
+  return items.map((u) => ({
+    userId: u.id,
+    name: u.name ?? "",
+  }));
 }
 
 export const updateHoleStatsFromMetrix = async (
@@ -343,12 +411,67 @@ export const updateHoleStatsFromMetrix = async (
     });
   }
 
-  const { error: playerErr } = await supabase
-    .from("metrix_player_result")
-    .upsert(playerRows, { onConflict: "metrix_competition_id,user_id" });
+  let playerUpsertFailed = false;
+  if (playerRows.length > 0) {
+    const { error } = await supabase
+      .from("metrix_player_result")
+      .upsert(playerRows, { onConflict: "metrix_competition_id,user_id" });
+    if (error) {
+      playerUpsertFailed = true;
+      console.error("[Metrix] metrix_player_result upsert failed:", error);
+    }
+  }
 
-  if (playerErr) {
-    console.error("[Metrix] metrix_player_result upsert failed:", playerErr);
+  // Remove DB rows for players no longer in Metrix results (upsert only adds/updates).
+  if (!playerUpsertFailed) {
+    const apiUserIds = new Set(players.map((p) => String(p.UserID)));
+    const { data: existingPlayerRows, error: listErr } = await supabase
+      .from("metrix_player_result")
+      .select("id, user_id, player_results, played_holes")
+      .eq("metrix_competition_id", competitionId);
+
+    if (listErr) {
+      console.error(
+        "[Metrix] metrix_player_result list for stale cleanup failed:",
+        listErr
+      );
+    } else {
+      const staleIds = (existingPlayerRows ?? [])
+        .filter((r: { user_id: string }) => !apiUserIds.has(r.user_id))
+        .filter((r: { player_results?: unknown; played_holes?: number | null }) => {
+          if (hasScorecardHoleData(r.player_results)) return false;
+          const played = r.played_holes ?? 0;
+          if (typeof played === "number" && played > 0) return false;
+          return true;
+        })
+        .map((r: { id: number }) => r.id);
+
+      if (staleIds.length > 0) {
+        const { error: ctpDelErr } = await supabase
+          .from("ctp_results")
+          .delete()
+          .in("metrix_player_result_id", staleIds);
+
+        if (ctpDelErr) {
+          console.error(
+            "[Metrix] ctp_results delete before stale player cleanup failed:",
+            ctpDelErr
+          );
+        } else {
+          const { error: delErr } = await supabase
+            .from("metrix_player_result")
+            .delete()
+            .in("id", staleIds);
+
+          if (delErr) {
+            console.error(
+              "[Metrix] metrix_player_result stale row delete failed:",
+              delErr
+            );
+          }
+        }
+      }
+    }
   }
 
   const entries = Object.entries(holeStats);

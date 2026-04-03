@@ -59,18 +59,14 @@ export const feedbackBodySchema = z.object({
     feedback: z.string().min(1).transform((s) => s.trim()),
 })
 
-// Auth pre-login
+// Auth pre-login — set fetchMetrixIfNewUser true only after user consents to Metrix data use
 export const authPreLoginSchema = z.object({
     email: z.string().email().transform((s) => s.trim().toLowerCase()),
+    fetchMetrixIfNewUser: z.boolean().optional(),
 })
 
 // Auth register-from-metrix
 export const authRegisterSchema = z.object({
     email: z.string().email().transform((s) => s.trim().toLowerCase()),
     metrixUserId: z.number().int().positive(),
-})
-
-// Metrix check-email
-export const metrixCheckEmailSchema = z.object({
-    email: z.string().email().transform((s) => s.trim().toLowerCase()),
 })
