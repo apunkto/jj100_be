@@ -2,6 +2,38 @@ import {getSupabaseClient} from "../shared/supabase";
 import type {Env} from "../shared/types";
 import {getPlayerResult} from "./statsService";
 
+type SupabaseServiceClient = ReturnType<typeof getSupabaseClient>;
+
+/** Metrix "Waiting List" pseudo-division — exclude from JJ100 cache. */
+function isMetrixWaitingListClass(className: string | null | undefined): boolean {
+  return String(className ?? "").trim().toLowerCase() === "waiting list";
+}
+
+async function deleteMetrixPlayerResultRowIds(
+  supabase: SupabaseServiceClient,
+  resultIds: number[]
+): Promise<void> {
+  if (resultIds.length === 0) return;
+  const { error: ctpDelErr } = await supabase
+    .from("ctp_results")
+    .delete()
+    .in("metrix_player_result_id", resultIds);
+  if (ctpDelErr) {
+    console.error(
+      "[Metrix] ctp_results delete before metrix_player_result removal failed:",
+      ctpDelErr
+    );
+    return;
+  }
+  const { error: delErr } = await supabase
+    .from("metrix_player_result")
+    .delete()
+    .in("id", resultIds);
+  if (delErr) {
+    console.error("[Metrix] metrix_player_result row delete failed:", delErr);
+  }
+}
+
 const METRIX_ALPS_API_BASE = "https://alps.discgolfmetrix.com/api";
 
 /** Alps `user.show` — https://alps.discgolfmetrix.com/docs/api#/operations/user.show */
@@ -304,7 +336,10 @@ export const updateHoleStatsFromMetrix = async (
   }
 
   const players = (comp.Results || []).filter(
-    (p) => p.UserID != null && p.UserID !== ""
+    (p) =>
+      p.UserID != null &&
+      p.UserID !== "" &&
+      !isMetrixWaitingListClass(p.ClassName)
   );
   console.log("players size", players.length);
 
@@ -427,7 +462,7 @@ export const updateHoleStatsFromMetrix = async (
     const apiUserIds = new Set(players.map((p) => String(p.UserID)));
     const { data: existingPlayerRows, error: listErr } = await supabase
       .from("metrix_player_result")
-      .select("id, user_id, player_results, played_holes")
+      .select("id, user_id, player_results, played_holes, class_name")
       .eq("metrix_competition_id", competitionId);
 
     if (listErr) {
@@ -436,6 +471,12 @@ export const updateHoleStatsFromMetrix = async (
         listErr
       );
     } else {
+      const waitingListIds = (existingPlayerRows ?? [])
+        .filter((r: { class_name?: string | null }) =>
+          isMetrixWaitingListClass(r.class_name)
+        )
+        .map((r: { id: number }) => r.id);
+
       const staleIds = (existingPlayerRows ?? [])
         .filter((r: { user_id: string }) => !apiUserIds.has(r.user_id))
         .filter((r: { player_results?: unknown; played_holes?: number | null }) => {
@@ -446,30 +487,9 @@ export const updateHoleStatsFromMetrix = async (
         })
         .map((r: { id: number }) => r.id);
 
-      if (staleIds.length > 0) {
-        const { error: ctpDelErr } = await supabase
-          .from("ctp_results")
-          .delete()
-          .in("metrix_player_result_id", staleIds);
-
-        if (ctpDelErr) {
-          console.error(
-            "[Metrix] ctp_results delete before stale player cleanup failed:",
-            ctpDelErr
-          );
-        } else {
-          const { error: delErr } = await supabase
-            .from("metrix_player_result")
-            .delete()
-            .in("id", staleIds);
-
-          if (delErr) {
-            console.error(
-              "[Metrix] metrix_player_result stale row delete failed:",
-              delErr
-            );
-          }
-        }
+      const toRemove = [...new Set([...waitingListIds, ...staleIds])];
+      if (toRemove.length > 0) {
+        await deleteMetrixPlayerResultRowIds(supabase, toRemove);
       }
     }
   }
