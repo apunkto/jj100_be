@@ -118,7 +118,6 @@ export type PlayerStatsResponse = {
         dnf: boolean;
     };
     deltaToClassLeader: number | null;
-    overallPlace: number | null;
     scoreBreakdown: {
         eagles: number;
         birdies: number;
@@ -196,11 +195,6 @@ export const getMetrixPlayerStats = async (env: Env, userId: string, competition
         ? selected.diff - (leader.diff ?? 0)
         : null;
 
-    const validPlayers = results.filter(p => !p.dnf);
-    const sorted = [...validPlayers].sort((a, b) => (a.diff ?? 999999) - (b.diff ?? 999999));
-    const index = sorted.findIndex(p => p.user_id === selected.user_id);
-    const overallPlace = index >= 0 ? index + 1 : null;
-
     // score breakdown and hole counts (from persisted columns)
     const totalHoles = selected.total_holes ?? 0;
     const playedHoles = selected.played_holes ?? 0;
@@ -231,7 +225,6 @@ export const getMetrixPlayerStats = async (env: Env, userId: string, competition
             dnf: selected.dnf,
         },
         deltaToClassLeader,
-        overallPlace,
         scoreBreakdown,
         holes: {played: playedHoles, total: totalHoles, playedPct},
         obHoles,
