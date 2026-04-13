@@ -324,6 +324,26 @@ export const getCtpHoles = async (env: Env, competitionId: number) => {
     return {data: enriched, error: null};
 };
 
+export const getCateringHoles = async (env: Env, competitionId: number) => {
+    const supabase = getSupabaseClient(env)
+
+    const {data, error} = await supabase
+        .from('hole')
+        .select('*')
+        .eq('is_food', true)
+        .eq('metrix_competition_id', competitionId)
+        .order('number', {ascending: true})
+
+    if (error || !data) {
+        return {
+            data: [],
+            error: error ?? {message: 'Failed to fetch catering holes', code: 'catering_holes_fetch_error'},
+        }
+    }
+
+    return {data, error: null}
+}
+
 export const getTopRankedHoles = async (env: Env, competitionId: number | null = null) => {
     const supabase = getSupabaseClient(env)
 

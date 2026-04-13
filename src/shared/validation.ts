@@ -47,6 +47,12 @@ export const predictionBodySchema = z.object({
     water_discs_count: z.number().optional().nullable(),
 }).passthrough()
 
+// Food choices (Toitlustus)
+export const foodChoicesPatchSchema = z.object({
+    is_vege_food: z.boolean(),
+    pizza: z.enum(['tyri', 'mafioso', 'vegetariana']),
+})
+
 // CTP submission
 export const ctpBodySchema = z.object({
     distance_cm: z.number().int().nonnegative(),

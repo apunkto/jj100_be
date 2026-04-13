@@ -37,7 +37,7 @@ router.get('/competition/:id', async (c) => {
     const supabase = getSupabaseClient(c.env)
     const { data, error } = await supabase
         .from('metrix_competition')
-        .select('id, name, ctp_enabled, checkin_enabled, prediction_enabled')
+        .select('id, name, ctp_enabled, checkin_enabled, prediction_enabled, food_choice_enabled')
         .eq('id', competitionId)
         .maybeSingle()
 

@@ -517,3 +517,11 @@ begin
   return v_new_id;
 end;
 $$;
+
+-- 2026-04-12: Food choices (Toitlustus) — competition toggle + per-player lunch preferences
+ALTER TABLE metrix_competition
+    ADD COLUMN food_choice_enabled boolean NOT NULL DEFAULT false;
+
+ALTER TABLE metrix_player_result
+    ADD COLUMN is_vege_food boolean NOT NULL DEFAULT false,
+    ADD COLUMN pizza varchar(25);

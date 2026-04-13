@@ -4,6 +4,7 @@ import type {PlayerIdentity} from '../player/types'
 import {getUserResultOnHole} from '../metrix/service'
 import {getPlayerResult} from '../metrix/statsService'
 import {
+    getCateringHoles,
     getCtpByHoleNumber,
     getCtpHoles,
     getHoleByNumber,
@@ -128,6 +129,21 @@ router.get('/holes/ctp', async (c) => {
 
     return c.json(data ?? []);
 });
+
+router.get('/holes/catering', async (c) => {
+    const user = c.get('user')
+    if (user.activeCompetitionId == null || !Number.isFinite(user.activeCompetitionId)) {
+        return jsonError(c, 'No active competition', 400)
+    }
+
+    const {data, error} = await getCateringHoles(c.env, user.activeCompetitionId)
+
+    if (error) return jsonError(c, error, 500)
+
+    return c.json(data ?? [], 200, {
+        'Cache-Control': 'private, max-age=60, must-revalidate',
+    })
+})
 
 router.get('/holes/count', async (c) => {
     const user = c.get('user')

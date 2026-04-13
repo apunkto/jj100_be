@@ -10,6 +10,9 @@ def haversine(lat1, lon1, lat2, lon2):
     a = sin(dphi/2)**2 + cos(phi1)*cos(phi2)*sin(dlambda/2)**2
     return 2 * R * atan2(sqrt(a), sqrt(1 - a))
 
+# Specify the metrix competition IDs to restrict the UPDATE statements to
+METRIX_IDS = (4, 30)
+
 # Parse the KML
 tree = ET.parse('data.kml')
 root = tree.getroot()
@@ -54,9 +57,11 @@ for i in range(1, 101):
             if 'korv' in descs:
                 lat2, lon2, _ = descs['korv']
                 length = round(haversine(lat1, lon1, lat2, lon2))
-                print(f"UPDATE hole SET coordinates = '{latlon_str}', length = {length} WHERE number = '{name}';")
+                # include metrix competition restriction in WHERE, and add par and card_img
+                print(f"UPDATE hole SET coordinates = '{latlon_str}', length = {length}, par = 3, card_img = '2026/{name}.webp' WHERE number = '{name}' AND metrix_competition_id IN {METRIX_IDS};")
             else:
-                print(f"UPDATE hole SET coordinates = '{latlon_str}' WHERE number = '{name}';")
+                # update coordinates only, still restrict by metrix competition ids, add par and card_img
+                print(f"UPDATE hole SET coordinates = '{latlon_str}', par = 3, card_img = '2026/{name}.webp' WHERE number = '{name}' AND metrix_competition_id IN {METRIX_IDS};")
                 print(f"-- Missing 'korv' for hole {name}")
                 missing.append(name)
         else:

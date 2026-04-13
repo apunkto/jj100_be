@@ -103,6 +103,9 @@ export type MetrixPlayerResultRow = {
     played_holes: number;
     ob_holes: number;
     last_played_hole_index: number | null;
+    /** Present after food-choice migration */
+    is_vege_food?: boolean;
+    pizza?: string | null;
 };
 
 export type PlayerStatsResponse = {

@@ -86,7 +86,7 @@ router.get('/competitions', async (c) => {
     const supabase = getSupabaseClient(c.env)
     const { data, error } = await supabase
         .from('metrix_competition')
-        .select('id, name, competition_date, status, ctp_enabled, checkin_enabled, prediction_enabled, did_rain')
+        .select('id, name, competition_date, status, ctp_enabled, checkin_enabled, prediction_enabled, did_rain, food_choice_enabled')
         .order('competition_date', { ascending: true, nullsFirst: false })
 
     if (error) {
@@ -98,7 +98,7 @@ router.get('/competitions', async (c) => {
 
 async function patchCompetitionFlag(
     c: Context<{ Bindings: Env; Variables: HonoVars }>,
-    field: 'ctp_enabled' | 'checkin_enabled' | 'prediction_enabled' | 'did_rain'
+    field: 'ctp_enabled' | 'checkin_enabled' | 'prediction_enabled' | 'did_rain' | 'food_choice_enabled'
 ) {
     const competitionId = Number(c.req.param('id'))
     if (!Number.isFinite(competitionId)) {
@@ -126,6 +126,7 @@ router.use('/competition/:id', requireAdmin)
 router.patch('/competition/:id/ctp', (c) => patchCompetitionFlag(c, 'ctp_enabled'))
 router.patch('/competition/:id/checkin', (c) => patchCompetitionFlag(c, 'checkin_enabled'))
 router.patch('/competition/:id/prediction', (c) => patchCompetitionFlag(c, 'prediction_enabled'))
+router.patch('/competition/:id/food-choice', (c) => patchCompetitionFlag(c, 'food_choice_enabled'))
 router.patch('/competition/:id/did-rain', async (c) => {
     const competitionId = Number(c.req.param('id'))
     if (!Number.isFinite(competitionId)) {
