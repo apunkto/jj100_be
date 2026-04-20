@@ -4,7 +4,7 @@ import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
 import {verifyCompetitionAccess} from '../shared/competitionAccess'
 import {parseJsonBody} from '../shared/validation'
-import {buildBillData, findTransaction} from './service'
+import {buildBillData, findTransaction, normalizeIban, normalizeInstructionId} from './service'
 
 type HonoVars = {user: PlayerIdentity}
 const router = new Hono<{Bindings: Env; Variables: HonoVars}>()
@@ -32,7 +32,16 @@ router.post('/lookup', async (c) => {
     const parsed = await parseJsonBody(() => c.req.json(), billLookupSchema)
     if (!parsed.success) return c.json({success: false, error: parsed.error}, 400)
 
-    const tx = findTransaction(parsed.data.iban, parsed.data.instructionId)
+    const iban = normalizeIban(parsed.data.iban)
+    const instructionId = normalizeInstructionId(parsed.data.instructionId)
+    if (!iban || !instructionId) {
+        return c.json(
+            {success: false, error: 'Palun täida pangakonto number ja maksekorralduse number.'},
+            400,
+        )
+    }
+
+    const tx = findTransaction(iban, instructionId)
     if (!tx) {
         return c.json(
             {success: false, error: 'Makset ei leitud. Kontrolli pangakonto numbrit ja maksekorralduse numbrit.'},

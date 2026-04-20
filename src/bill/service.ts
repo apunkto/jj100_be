@@ -29,6 +29,16 @@ type ParsedEntry = {
     amount: string
 }
 
+/** Trim and remove all whitespace (grouped IBAN input). */
+export function normalizeIban(input: string): string {
+    return input.trim().replace(/\s+/g, '').toUpperCase()
+}
+
+/** Trim, remove whitespace, then remove hyphens for maksekorraldus comparison. */
+export function normalizeInstructionId(input: string): string {
+    return input.trim().replace(/\s+/g, '').replace(/-/g, '')
+}
+
 let cachedEntries: ParsedEntry[] | null = null
 
 function parseEntries(): ParsedEntry[] {
@@ -69,11 +79,15 @@ function parseEntries(): ParsedEntry[] {
     return entries
 }
 
+/** `iban` and `instructionId` must already be normalized (see routes). */
 export function findTransaction(iban: string, instructionId: string): ParsedEntry | null {
     const entries = parseEntries()
-    return entries.find(
-        (e) => e.iban === iban && e.instrId === instructionId,
-    ) ?? null
+    return (
+        entries.find(
+            (e) =>
+                normalizeIban(e.iban) === iban && normalizeInstructionId(e.instrId) === instructionId,
+        ) ?? null
+    )
 }
 
 export function buildBillData(
