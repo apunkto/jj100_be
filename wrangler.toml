@@ -5,7 +5,6 @@ usage_model = "unbound"
 
 [vars]
 SUPABASE_URL = "https://vchoisaglmnjyhiieete.supabase.co"
-METRIX_ALPS_INTEGRATION_CODE = "METRIX_ALPS_INTEGRATION_CODE"
 
 [[kv_namespaces]]
 binding = "DRAW_STATE"
