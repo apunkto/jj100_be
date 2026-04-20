@@ -6,6 +6,7 @@ usage_model = "unbound"
 [vars]
 SUPABASE_URL = "https://vchoisaglmnjyhiieete.supabase.co"
 SUPABASE_ANON_KEY = "your-public-anon-key"
+METRIX_ALPS_INTEGRATION_CODE = "METRIX_ALPS_INTEGRATION_CODE"
 
 [[kv_namespaces]]
 binding = "DRAW_STATE"
