@@ -39,5 +39,6 @@ fallthrough = true
 [observability.logs]
 enabled = true
 
+
 [triggers]
 crons = ["0 * * * *", "*/30 * * * *"]
