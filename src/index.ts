@@ -13,6 +13,7 @@ import competitionRoutes from './competition/routes'
 import feedbackRoutes from './feedback/routes'
 import adminRoutes, {runMetrixSync} from './admin/routes'
 import predictionRoutes from './prediction/routes'
+import billRoutes from './bill/routes'
 import {runPredictionPrecompute} from './prediction/precompute'
 import type {Env} from './shared/types'
 import {DrawDashboardDO} from './lottery/drawDashboardDO'
@@ -68,6 +69,7 @@ app.route('/', competitionRoutes)
 app.route('/feedback', feedbackRoutes)
 app.route('/admin', adminRoutes)
 app.route('/prediction', predictionRoutes)
+app.route('/bill', billRoutes)
 
 // Mount /me at root level (not under /player prefix)
 app.get('/me', async (c) => {

@@ -1,78 +1,97 @@
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from math import radians, cos, sin, sqrt, atan2
 
-# Haversine distance function (in meters)
+SCRIPT_DIR = Path(__file__).resolve().parent
+
 def haversine(lat1, lon1, lat2, lon2):
-    R = 6371000  # Earth radius in meters
+    R = 6371000
     phi1, phi2 = radians(lat1), radians(lat2)
     dphi = radians(lat2 - lat1)
     dlambda = radians(lon2 - lon1)
     a = sin(dphi/2)**2 + cos(phi1)*cos(phi2)*sin(dlambda/2)**2
     return 2 * R * atan2(sqrt(a), sqrt(1 - a))
 
-# Specify the metrix competition IDs to restrict the UPDATE statements to
 METRIX_IDS = (4, 30)
-
-# Parse the KML
-tree = ET.parse('data.kml')
-root = tree.getroot()
 ns = {'kml': 'http://www.opengis.net/kml/2.2'}
 
-# Collect points
-points = {}
-tii_count = 0
-korv_count = 0
+# --- Parse data.kml for tii coordinates ---
+tree = ET.parse(SCRIPT_DIR / 'data.kml')
+root = tree.getroot()
 
+tii_coords = {}
 for placemark in root.findall('.//kml:Placemark', ns):
     name = placemark.find('kml:name', ns)
     desc = placemark.find('kml:description', ns)
     coords = placemark.find('.//kml:coordinates', ns)
+    if name is None or desc is None or coords is None:
+        continue
+    if desc.text.strip() != 'tii':
+        continue
+    name_text = name.text.strip()
+    lon, lat, *_ = map(float, coords.text.strip().split(','))
+    tii_coords[name_text] = f"{lat}, {lon}"
 
-    if name is not None and desc is not None and coords is not None:
-        name_text = name.text.strip()
-        desc_text = desc.text.strip()
-        coord_text = coords.text.strip()
-        lon, lat, *_ = map(float, coord_text.split(','))
-        latlon_str = f"{lat}, {lon}"
+# --- Parse Fairway.kml for line lengths ---
+tree_fw = ET.parse(SCRIPT_DIR / 'Fairway.kml')
+root_fw = tree_fw.getroot()
 
-        if name_text not in points:
-            points[name_text] = {}
+fairway_lengths = {}
+for placemark in root_fw.findall('.//kml:Placemark', ns):
+    name = placemark.find('kml:name', ns)
+    coords = placemark.find('.//kml:coordinates', ns)
+    if name is None or coords is None:
+        continue
+    name_text = name.text.strip()
+    raw = coords.text.strip().split()
+    points = []
+    for entry in raw:
+        lon, lat, *_ = map(float, entry.split(','))
+        points.append((lat, lon))
+    total = sum(
+        haversine(points[i][0], points[i][1], points[i+1][0], points[i+1][1])
+        for i in range(len(points) - 1)
+    )
+    fairway_lengths[name_text] = round(total)
 
-        points[name_text][desc_text] = (lat, lon, latlon_str)
-
-        if desc_text == 'tii':
-            tii_count += 1
-        elif desc_text == 'korv':
-            korv_count += 1
-
-# Generate SQL and log missing data
-print("SQL Updates:")
-missing = []
+# --- Generate SQL (write next to this script; avoids empty file if cwd is wrong) ---
+out_path = SCRIPT_DIR / 'updates.sql'
+missing_coords = []
+missing_length = []
+lines = ["SQL Updates:"]
 for i in range(1, 101):
     name = str(i)
-    if name in points:
-        descs = points[name]
-        if 'tii' in descs:
-            lat1, lon1, latlon_str = descs['tii']
-            if 'korv' in descs:
-                lat2, lon2, _ = descs['korv']
-                length = round(haversine(lat1, lon1, lat2, lon2))
-                # include metrix competition restriction in WHERE, and add par and card_img
-                print(f"UPDATE hole SET coordinates = '{latlon_str}', length = {length}, par = 3, card_img = '2026/{name}.webp' WHERE number = '{name}' AND metrix_competition_id IN {METRIX_IDS};")
-            else:
-                # update coordinates only, still restrict by metrix competition ids, add par and card_img
-                print(f"UPDATE hole SET coordinates = '{latlon_str}', par = 3, card_img = '2026/{name}.webp' WHERE number = '{name}' AND metrix_competition_id IN {METRIX_IDS};")
-                print(f"-- Missing 'korv' for hole {name}")
-                missing.append(name)
-        else:
-            print(f"-- Missing 'tii' for hole {name}")
-            missing.append(name)
-    else:
-        print(f"-- No Placemark found for hole {name}")
-        missing.append(name)
+    has_coords = name in tii_coords
+    has_length = name in fairway_lengths
 
-# Summary log
-print("\nSummary:")
-print(f"Total 'tii' points found: {tii_count}")
-print(f"Total 'korv' points found: {korv_count}")
-print(f"Total holes missing 'tii' or 'korv': {len(missing)}")
+    if has_coords and has_length:
+        lines.append(
+            f"UPDATE hole SET coordinates = '{tii_coords[name]}', length = {fairway_lengths[name]} WHERE number = '{name}' AND metrix_competition_id IN {METRIX_IDS};"
+        )
+    elif has_coords:
+        lines.append(
+            f"UPDATE hole SET coordinates = '{tii_coords[name]}' WHERE number = '{name}' AND metrix_competition_id IN {METRIX_IDS};"
+        )
+        lines.append(f"-- Missing fairway length for hole {name}")
+        missing_length.append(name)
+    elif has_length:
+        lines.append(
+            f"UPDATE hole SET length = {fairway_lengths[name]} WHERE number = '{name}' AND metrix_competition_id IN {METRIX_IDS};"
+        )
+        lines.append(f"-- Missing tii coordinates for hole {name}")
+        missing_coords.append(name)
+    else:
+        lines.append(f"-- No data found for hole {name}")
+        missing_coords.append(name)
+        missing_length.append(name)
+
+lines.append("")
+lines.append("Summary:")
+lines.append(f"Tii coordinates found: {len(tii_coords)}")
+lines.append(f"Fairway lengths found: {len(fairway_lengths)}")
+lines.append(f"Holes missing coordinates: {missing_coords or 'none'}")
+lines.append(f"Holes missing length: {missing_length or 'none'}")
+
+text = "\n".join(lines) + "\n"
+out_path.write_text(text, encoding="utf-8")
+print(f"Wrote {out_path} ({len(text)} bytes)")
