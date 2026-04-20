@@ -1,5 +1,7 @@
 import {XMLParser} from 'fast-xml-parser'
 import kvvXml from '../../bills/kvv.xml'
+import type {Env} from '../shared/types'
+import {getSupabaseClient} from '../shared/supabase'
 
 export type BillData = {
     billNumber: string
@@ -119,5 +121,18 @@ export function buildBillData(
             iban: 'EE751010220241724229',
         },
         signatory: 'Arto Saar',
+    }
+}
+
+/** Insert or refresh audit row (unique player_id + bill_number). Does not throw. */
+export async function recordPlayerBillIssued(env: Env, playerId: number, billNumber: string): Promise<void> {
+    const supabase = getSupabaseClient(env)
+    const requested_date = new Date().toISOString()
+    const {error} = await supabase.from('player_bill').upsert(
+        {player_id: playerId, bill_number: billNumber, requested_date},
+        {onConflict: 'player_id,bill_number'},
+    )
+    if (error) {
+        console.error('[player_bill] upsert failed:', error)
     }
 }

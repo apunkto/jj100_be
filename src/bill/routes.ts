@@ -4,7 +4,7 @@ import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
 import {verifyCompetitionAccess} from '../shared/competitionAccess'
 import {parseJsonBody} from '../shared/validation'
-import {buildBillData, findTransaction, normalizeIban, normalizeInstructionId} from './service'
+import {buildBillData, findTransaction, normalizeIban, normalizeInstructionId, recordPlayerBillIssued,} from './service'
 
 type HonoVars = {user: PlayerIdentity}
 const router = new Hono<{Bindings: Env; Variables: HonoVars}>()
@@ -50,6 +50,7 @@ router.post('/lookup', async (c) => {
     }
 
     const bill = buildBillData(tx, competitionId, user.playerId)
+    await recordPlayerBillIssued(c.env, user.playerId, bill.billNumber)
     return c.json({success: true, data: bill})
 })
 

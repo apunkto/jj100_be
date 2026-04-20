@@ -525,3 +525,15 @@ ALTER TABLE metrix_competition
 ALTER TABLE metrix_player_result
     ADD COLUMN is_vege_food boolean NOT NULL DEFAULT false,
     ADD COLUMN pizza varchar(25);
+
+-- 2026-04-21: Audit trail for bills issued via bank payment lookup (Üldinfo / Väljasta arve)
+CREATE TABLE player_bill
+(
+    id              bigserial    NOT NULL PRIMARY KEY,
+    player_id       bigint       NOT NULL REFERENCES player (id) ON DELETE CASCADE,
+    bill_number     varchar(255) NOT NULL,
+    requested_date  timestamptz  NOT NULL DEFAULT now(),
+    UNIQUE (player_id, bill_number)
+);
+
+CREATE INDEX player_bill_player_id_idx ON player_bill (player_id);
