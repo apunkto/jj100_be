@@ -537,3 +537,10 @@ CREATE TABLE player_bill
 );
 
 CREATE INDEX player_bill_player_id_idx ON player_bill (player_id);
+
+ALTER TABLE hole ADD COLUMN IF NOT EXISTS rules_et text;
+ALTER TABLE hole ADD COLUMN IF NOT EXISTS rules_en text;
+
+UPDATE hole SET rules_et = rules;
+
+ALTER TABLE hole DROP COLUMN IF EXISTS rules;
