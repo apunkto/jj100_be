@@ -36,7 +36,11 @@ router.post('/lookup', async (c) => {
     const instructionId = normalizeInstructionId(parsed.data.instructionId)
     if (!iban || !instructionId) {
         return c.json(
-            {success: false, error: 'Palun täida pangakonto number ja maksekorralduse number.'},
+            {
+                success: false,
+                code: 'bill_missing_payment_details',
+                error: 'Please provide IBAN and payment reference number.',
+            },
             400,
         )
     }
@@ -44,7 +48,11 @@ router.post('/lookup', async (c) => {
     const tx = findTransaction(iban, instructionId)
     if (!tx) {
         return c.json(
-            {success: false, error: 'Makset ei leitud. Kontrolli pangakonto numbrit ja maksekorralduse numbrit.'},
+            {
+                success: false,
+                code: 'bill_transaction_not_found',
+                error: 'Payment not found. Check IBAN and payment reference.',
+            },
             404,
         )
     }
