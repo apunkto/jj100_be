@@ -96,14 +96,20 @@ function parseEntries(): ParsedEntry[] {
     return entries
 }
 
+export type BillLookupMatch =
+    | {status: 'none'}
+    | {status: 'ambiguous'; count: number}
+    | {status: 'ok'; tx: ParsedEntry}
+
 /** `iban` and `payerName` must already be normalized (see routes). */
-export function findTransaction(iban: string, payerName: string): ParsedEntry | null {
+export function matchTransaction(iban: string, payerName: string): BillLookupMatch {
     const entries = parseEntries()
-    return (
-        entries.find(
-            (e) => normalizeIban(e.iban) === iban && normalizePayerName(e.debtorName) === payerName,
-        ) ?? null
+    const matches = entries.filter(
+        (e) => normalizeIban(e.iban) === iban && normalizePayerName(e.debtorName) === payerName,
     )
+    if (matches.length === 0) return {status: 'none'}
+    if (matches.length > 1) return {status: 'ambiguous', count: matches.length}
+    return {status: 'ok', tx: matches[0]!}
 }
 
 export function buildBillData(

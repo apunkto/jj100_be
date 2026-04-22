@@ -4,7 +4,7 @@ import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
 import {verifyCompetitionAccess} from '../shared/competitionAccess'
 import {parseJsonBody} from '../shared/validation'
-import {buildBillData, findTransaction, normalizeIban, normalizePayerName, recordPlayerBillIssued} from './service'
+import {buildBillData, matchTransaction, normalizeIban, normalizePayerName, recordPlayerBillIssued} from './service'
 
 type HonoVars = {user: PlayerIdentity}
 const router = new Hono<{Bindings: Env; Variables: HonoVars}>()
@@ -45,8 +45,8 @@ router.post('/lookup', async (c) => {
         )
     }
 
-    const tx = findTransaction(iban, payerName)
-    if (!tx) {
+    const lookup = matchTransaction(iban, payerName)
+    if (lookup.status === 'none') {
         return c.json(
             {
                 success: false,
@@ -56,8 +56,18 @@ router.post('/lookup', async (c) => {
             404,
         )
     }
+    if (lookup.status === 'ambiguous') {
+        return c.json(
+            {
+                success: false,
+                code: 'bill_multiple_payments',
+                error: 'More than one payment matches these details. Contact the organisers for an invoice.',
+            },
+            409,
+        )
+    }
 
-    const bill = buildBillData(tx, competitionId, user.playerId)
+    const bill = buildBillData(lookup.tx, competitionId, user.playerId)
     await recordPlayerBillIssued(c.env, user.playerId, bill.billNumber)
     return c.json({success: true, data: bill})
 })
