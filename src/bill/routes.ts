@@ -34,6 +34,7 @@ router.post('/lookup', async (c) => {
 
     const iban = normalizeIban(parsed.data.iban)
     const instructionId = normalizeInstructionId(parsed.data.instructionId)
+    console.log('iban', iban, instructionId);
     if (!iban || !instructionId) {
         return c.json(
             {
