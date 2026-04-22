@@ -31,14 +31,30 @@ type ParsedEntry = {
     amount: string
 }
 
-/** Trim and remove all whitespace (grouped IBAN input). */
-export function normalizeIban(input: string): string {
-    return input.trim().replace(/\s+/g, '').toUpperCase()
+const INVISIBLE_CONTROL_REGEX = /[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g
+
+function stripInvisibleControls(input: string): string {
+    return input.replace(INVISIBLE_CONTROL_REGEX, '')
 }
 
-/** Trim, remove whitespace, then remove hyphens for maksekorraldus comparison. */
+/** Trim and remove all whitespace (grouped IBAN input). */
+export function normalizeIban(input: string): string {
+    return stripInvisibleControls(input)
+        .normalize('NFKC')
+        .trim()
+        .replace(/\s+/g, '')
+        .replace(/[^A-Za-z0-9]/g, '')
+        .toUpperCase()
+}
+
+/** Trim and remove separators/symbols for maksekorraldus comparison. */
 export function normalizeInstructionId(input: string): string {
-    return input.trim().replace(/\s+/g, '').replace(/-/g, '')
+    return stripInvisibleControls(input)
+        .normalize('NFKC')
+        .trim()
+        .replace(/\s+/g, '')
+        .replace(/[^A-Za-z0-9]/g, '')
+        .toUpperCase()
 }
 
 let cachedEntries: ParsedEntry[] | null = null
