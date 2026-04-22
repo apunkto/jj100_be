@@ -4,14 +4,14 @@ import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
 import {verifyCompetitionAccess} from '../shared/competitionAccess'
 import {parseJsonBody} from '../shared/validation'
-import {buildBillData, findTransaction, normalizeIban, normalizeInstructionId, recordPlayerBillIssued,} from './service'
+import {buildBillData, findTransaction, normalizeIban, normalizePayerName, recordPlayerBillIssued} from './service'
 
 type HonoVars = {user: PlayerIdentity}
 const router = new Hono<{Bindings: Env; Variables: HonoVars}>()
 
 const billLookupSchema = z.object({
     iban: z.string().min(1, 'IBAN is required'),
-    instructionId: z.string().min(1, 'Instruction ID is required'),
+    payerName: z.string().min(1, 'Payer name is required'),
 })
 
 router.post('/lookup', async (c) => {
@@ -33,26 +33,25 @@ router.post('/lookup', async (c) => {
     if (!parsed.success) return c.json({success: false, error: parsed.error}, 400)
 
     const iban = normalizeIban(parsed.data.iban)
-    const instructionId = normalizeInstructionId(parsed.data.instructionId)
-    console.log('iban', iban, instructionId);
-    if (!iban || !instructionId) {
+    const payerName = normalizePayerName(parsed.data.payerName)
+    if (!iban || !payerName) {
         return c.json(
             {
                 success: false,
                 code: 'bill_missing_payment_details',
-                error: 'Please provide IBAN and payment reference number.',
+                error: 'Please provide IBAN and payer name as on the bank payment.',
             },
             400,
         )
     }
 
-    const tx = findTransaction(iban, instructionId)
+    const tx = findTransaction(iban, payerName)
     if (!tx) {
         return c.json(
             {
                 success: false,
                 code: 'bill_transaction_not_found',
-                error: 'Payment not found. Check IBAN and payment reference.',
+                error: 'Payment not found. Check IBAN and payer name.',
             },
             404,
         )

@@ -47,14 +47,13 @@ export function normalizeIban(input: string): string {
         .toUpperCase()
 }
 
-/** Trim and remove separators/symbols for maksekorraldus comparison. */
-export function normalizeInstructionId(input: string): string {
-    return stripInvisibleControls(input)
-        .normalize('NFKC')
-        .trim()
-        .replace(/\s+/g, '')
-        .replace(/[^A-Za-z0-9]/g, '')
-        .toUpperCase()
+/**
+ * Payer name for lookup: strip invisible controls, NFKC, trim, remove all whitespace,
+ * then uppercase (et-EE for correct handling of i/õäöü).
+ */
+export function normalizePayerName(input: string): string {
+    const collapsed = stripInvisibleControls(input).normalize('NFKC').trim().replace(/\s+/g, '')
+    return collapsed.toLocaleUpperCase('et-EE')
 }
 
 let cachedEntries: ParsedEntry[] | null = null
@@ -88,7 +87,7 @@ function parseEntries(): ParsedEntry[] {
         const iban = String(txDtls.RltdPties?.DbtrAcct?.Id?.IBAN ?? '')
         const remittanceInfo = String(txDtls.RmtInf?.Ustrd ?? '')
 
-        if (!instrId) continue
+        if (!normalizeIban(iban) || !normalizePayerName(debtorName)) continue
 
         entries.push({iban, instrId, debtorName, remittanceInfo, amount: amt})
     }
@@ -97,13 +96,12 @@ function parseEntries(): ParsedEntry[] {
     return entries
 }
 
-/** `iban` and `instructionId` must already be normalized (see routes). */
-export function findTransaction(iban: string, instructionId: string): ParsedEntry | null {
+/** `iban` and `payerName` must already be normalized (see routes). */
+export function findTransaction(iban: string, payerName: string): ParsedEntry | null {
     const entries = parseEntries()
     return (
         entries.find(
-            (e) =>
-                normalizeIban(e.iban) === iban && normalizeInstructionId(e.instrId) === instructionId,
+            (e) => normalizeIban(e.iban) === iban && normalizePayerName(e.debtorName) === payerName,
         ) ?? null
     )
 }
