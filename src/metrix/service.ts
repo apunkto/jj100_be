@@ -319,7 +319,6 @@ export const updateHoleStatsFromMetrix = async (
         metrix_competition_id: metrixCompetitionId,
         name: competitionName,
         competition_date: competitionDate,
-        status: "started",
       },
       { onConflict: "metrix_competition_id" }
     )
