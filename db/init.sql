@@ -544,3 +544,27 @@ ALTER TABLE hole ADD COLUMN IF NOT EXISTS rules_en text;
 UPDATE hole SET rules_et = rules;
 
 ALTER TABLE hole DROP COLUMN IF EXISTS rules;
+
+-- 2026-04-24: Pace of play — latest per-pool snapshot for admin (filled during Metrix sync)
+CREATE TABLE metrix_pace_of_play_pool
+(
+    id                        bigserial    NOT NULL PRIMARY KEY,
+    metrix_competition_id     bigint       NOT NULL REFERENCES metrix_competition (id) ON DELETE CASCADE,
+    pool_number               int          NOT NULL,
+    current_hole              int          NOT NULL,
+    holes_ahead_empty         int          NOT NULL DEFAULT 0,
+    pools_waiting_same_hole   int          NOT NULL DEFAULT 0,
+    pools_waiting_previous_hole int        NOT NULL DEFAULT 0,
+    pools_waiting_total       int          NOT NULL DEFAULT 0,
+    player_count              int          NOT NULL DEFAULT 0,
+    updated_date              timestamptz  NOT NULL DEFAULT now(),
+    UNIQUE (metrix_competition_id, pool_number)
+);
+
+CREATE INDEX metrix_pace_of_play_pool_competition_idx
+    ON metrix_pace_of_play_pool (metrix_competition_id);
+
+-- 2026-04-24: CTP sponsor info per hole
+ALTER TABLE hole ADD COLUMN ctp_sponsor varchar(255);
+ALTER TABLE hole ADD COLUMN ctp_sponsor_logo varchar(255);
+ALTER TABLE hole ADD COLUMN ctp_sponsor_url varchar(255);

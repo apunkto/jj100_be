@@ -3,6 +3,7 @@ import {Hono} from 'hono'
 import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
 import {updateHoleStatsFromMetrix} from '../metrix/service'
+import {rankSlowPools} from '../metrix/paceOfPlay'
 import {getSupabaseClient} from '../shared/supabase'
 import {requireAdmin} from '../middleware/admin'
 import {runPredictionPrecompute} from '../prediction/precompute'
@@ -177,6 +178,52 @@ router.patch('/competition/:id/status', async (c) => {
     }
 
     return c.json({ success: true, data })
+})
+
+router.get('/competition/:id/pace-of-play', async (c) => {
+    const competitionId = Number(c.req.param('id'))
+    if (!Number.isFinite(competitionId)) {
+        return c.json({ success: false, error: 'Invalid competition ID' }, 400)
+    }
+
+    const supabase = getSupabaseClient(c.env)
+    const { data, error } = await supabase
+        .from('metrix_pace_of_play_pool')
+        .select(
+            'pool_number, current_hole, holes_ahead_empty, pools_waiting_same_hole, pools_waiting_previous_hole, pools_waiting_total, player_count, updated_date'
+        )
+        .eq('metrix_competition_id', competitionId)
+
+    if (error) {
+        return c.json({ success: false, error: error.message }, 500)
+    }
+
+    const rows = (data ?? []) as Parameters<typeof rankSlowPools>[0]
+    const top = rankSlowPools(rows, 10)
+
+    return c.json({ success: true, data: top })
+})
+
+router.get('/competition/:id/pace-of-play/pool/:poolNumber', async (c) => {
+    const competitionId = Number(c.req.param('id'))
+    const poolNumber = Number(c.req.param('poolNumber'))
+    if (!Number.isFinite(competitionId) || !Number.isFinite(poolNumber)) {
+        return c.json({ success: false, error: 'Invalid competition or pool' }, 400)
+    }
+
+    const supabase = getSupabaseClient(c.env)
+    const { data, error } = await supabase
+        .from('metrix_player_result')
+        .select('user_id, name')
+        .eq('metrix_competition_id', competitionId)
+        .eq('start_group', poolNumber)
+        .order('name', { ascending: true, nullsFirst: false })
+
+    if (error) {
+        return c.json({ success: false, error: error.message }, 500)
+    }
+
+    return c.json({ success: true, data: data ?? [] })
 })
 
 export default router

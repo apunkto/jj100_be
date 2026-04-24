@@ -1,6 +1,7 @@
 import {getSupabaseClient} from "../shared/supabase";
 import type {Env} from "../shared/types";
 import {getPlayerResult} from "./statsService";
+import {computePaceSnapshotRows, derivePoolStates, type PacePlayerRowInput,} from "./paceOfPlay";
 
 type SupabaseServiceClient = ReturnType<typeof getSupabaseClient>;
 
@@ -31,6 +32,76 @@ async function deleteMetrixPlayerResultRowIds(
     .in("id", resultIds);
   if (delErr) {
     console.error("[Metrix] metrix_player_result row delete failed:", delErr);
+  }
+}
+
+async function persistMetrixPaceOfPlaySnapshot(
+  supabase: SupabaseServiceClient,
+  competitionId: number,
+  playerRows: PacePlayerRowInput[],
+  updatedDate: string
+): Promise<void> {
+  const poolStates = derivePoolStates(playerRows);
+  const activePoolNums = new Set(poolStates.map((p) => p.poolNumber));
+
+  const { data: existingRows, error: listErr } = await supabase
+    .from("metrix_pace_of_play_pool")
+    .select("pool_number")
+    .eq("metrix_competition_id", competitionId);
+
+  if (listErr) {
+    console.error(
+      "[Metrix] metrix_pace_of_play_pool list for cleanup failed:",
+      listErr
+    );
+  }
+
+  if (activePoolNums.size === 0) {
+    if ((existingRows?.length ?? 0) > 0) {
+      const { error: delAllErr } = await supabase
+        .from("metrix_pace_of_play_pool")
+        .delete()
+        .eq("metrix_competition_id", competitionId);
+      if (delAllErr) {
+        console.error(
+          "[Metrix] metrix_pace_of_play_pool delete all failed:",
+          delAllErr
+        );
+      }
+    }
+    return;
+  }
+
+  const snapshotRows = computePaceSnapshotRows(
+    competitionId,
+    poolStates,
+    updatedDate
+  );
+
+  if (snapshotRows.length > 0) {
+    const { error: upErr } = await supabase
+      .from("metrix_pace_of_play_pool")
+      .upsert(snapshotRows, {
+        onConflict: "metrix_competition_id,pool_number",
+      });
+    if (upErr) {
+      console.error("[Metrix] metrix_pace_of_play_pool upsert failed:", upErr);
+    }
+  }
+
+  const existingNums = new Set(
+    (existingRows ?? []).map((r: { pool_number: number }) => r.pool_number)
+  );
+  const toDelete = [...existingNums].filter((n) => !activePoolNums.has(n));
+  if (toDelete.length > 0) {
+    const { error: delErr } = await supabase
+      .from("metrix_pace_of_play_pool")
+      .delete()
+      .eq("metrix_competition_id", competitionId)
+      .in("pool_number", toDelete);
+    if (delErr) {
+      console.error("[Metrix] metrix_pace_of_play_pool delete failed:", delErr);
+    }
   }
 }
 
@@ -491,6 +562,24 @@ export const updateHoleStatsFromMetrix = async (
         await deleteMetrixPlayerResultRowIds(supabase, toRemove);
       }
     }
+  }
+
+  if (!playerUpsertFailed) {
+    const paceInputs: PacePlayerRowInput[] = playerRows.map((r) => ({
+      start_group: r.start_group ?? null,
+      total_holes: r.total_holes ?? 0,
+      played_holes: r.played_holes ?? 0,
+      last_played_hole_index: r.last_played_hole_index ?? null,
+      dnf: Boolean(r.dnf),
+      user_id: String(r.user_id),
+      name: r.name ?? null,
+    }));
+    await persistMetrixPaceOfPlaySnapshot(
+      supabase,
+      competitionId,
+      paceInputs,
+      now
+    );
   }
 
   const entries = Object.entries(holeStats);
