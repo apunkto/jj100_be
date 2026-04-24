@@ -2,7 +2,13 @@ import {Hono} from 'hono'
 import type {Env} from '../shared/types'
 import type {PlayerIdentity} from '../player/types'
 import {getCurrentHole} from './service'
-import {getCompetitionStats, getMetrixPlayerStats, getMyDivisionResult, getTopPlayersByDivision,} from './statsService'
+import {
+    getCompetitionStats,
+    getMetrixPlayerStats,
+    getMetrixPoolParProgress,
+    getMyDivisionResult,
+    getTopPlayersByDivision,
+} from './statsService'
 import {verifyCompetitionAccess} from '../shared/competitionAccess'
 
 type HonoVars = { user: PlayerIdentity }
@@ -72,6 +78,17 @@ router.get('/player/stats', async (c) => {
 
     const { data, error } = await getMetrixPlayerStats(c.env, userId, user.activeCompetitionId)
     if (error) return c.json({ error }, 404)
+    return c.json({ success: true, data })
+})
+
+router.get('/player/pool-par-progress', async (c) => {
+    const user = c.get('user')
+    const userId = String(user.metrixUserId)
+    if (!userId) return c.json({ error: 'Invalid userId' }, 400)
+    if (user.activeCompetitionId == null) return c.json({ error: 'No active competition' }, 400)
+
+    const { data, error } = await getMetrixPoolParProgress(c.env, userId, user.activeCompetitionId)
+    if (error) return c.json({ success: false, error }, 404)
     return c.json({ success: true, data })
 })
 

@@ -170,6 +170,36 @@ export const getPlayerResult = async (
     return {data: data as MetrixPlayerResultRow | null, error: null};
 };
 
+function orderHoleDiffsForStartGroup(
+    holeDiffs: (number | null)[],
+    totalHoles: number,
+    startGroup: number | null,
+): (number | null)[] {
+    const n = totalHoles
+    if (n <= 0) return []
+    let s = startGroup != null && Number.isFinite(startGroup) ? Math.floor(Number(startGroup)) : 1
+    if (s < 1 || s > n) s = 1
+    const out: (number | null)[] = []
+    for (let i = 0; i < n; i++) {
+        const courseHole = ((s - 1 + i) % n) + 1
+        out.push(holeDiffs[courseHole - 1] ?? null)
+    }
+    return out
+}
+
+function cumulativeParPlayedSeries(ordered: (number | null)[]): { hole: number; toPar: number }[] {
+    let cum = 0
+    let played = 0
+    const out: { hole: number; toPar: number }[] = []
+    for (const d of ordered) {
+        if (d === null) continue
+        cum += d
+        played += 1
+        out.push({ hole: played, toPar: cum })
+    }
+    return out
+}
+
 function buildHoleDiffsFromPlayerResults(
     results: HoleResult[] | null | undefined,
     totalHoles: number
@@ -267,6 +297,74 @@ export const getMetrixPlayerStats = async (env: Env, userId: string, competition
 
     return {data: response, error: null};
 };
+
+export type PoolParProgressPoint = { hole: number; toPar: number }
+
+export type PoolParProgressPlayer = {
+    userId: string;
+    name: string;
+    isSelf: boolean;
+    points: PoolParProgressPoint[];
+};
+
+export type PoolParProgressResponse = {
+    players: PoolParProgressPlayer[];
+};
+
+/** Same start_group: cumulative vs par after each scored hole (pool playing order). */
+export const getMetrixPoolParProgress = async (
+    env: Env,
+    userId: string,
+    competitionId: number,
+): Promise<{ data: PoolParProgressResponse; error: { message: string } | null }> => {
+    const myRes = await getPlayerResult(env, competitionId, userId)
+    if (myRes.error) return { data: { players: [] }, error: myRes.error }
+    const myRow = myRes.data
+    if (!myRow) return { data: { players: [] }, error: null }
+
+    const totalHoles = myRow.total_holes ?? 0
+    if (totalHoles <= 0) return { data: { players: [] }, error: null }
+
+    const poolStart = myRow.start_group
+    const buildForRow = (row: MetrixPlayerResultRow): PoolParProgressPlayer => {
+        const holeDiffs = buildHoleDiffsFromPlayerResults(row.player_results, totalHoles)
+        const anchor = poolStart != null && Number.isFinite(poolStart) ? poolStart : row.start_group
+        const ordered = orderHoleDiffsForStartGroup(holeDiffs, totalHoles, anchor)
+        const points = cumulativeParPlayedSeries(ordered)
+        return {
+            userId: row.user_id,
+            name: row.name ?? '',
+            isSelf: row.user_id === userId,
+            points,
+        }
+    }
+
+    if (poolStart == null || !Number.isFinite(poolStart)) {
+        return {
+            data: { players: [buildForRow(myRow)] },
+            error: null,
+        }
+    }
+
+    const supabase = getSupabaseClient(env)
+    const { data: rows, error } = await supabase
+        .from('metrix_player_result')
+        .select('user_id, name, player_results, total_holes, start_group')
+        .eq('metrix_competition_id', competitionId)
+        .eq('start_group', poolStart)
+
+    if (error) return { data: { players: [] }, error }
+
+    const list = (rows ?? []) as MetrixPlayerResultRow[]
+    const players: PoolParProgressPlayer[] = list
+        .map((row) => buildForRow(row))
+        .sort((a, b) => {
+            if (a.isSelf !== b.isSelf) return a.isSelf ? -1 : 1
+            return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+        })
+
+    return { data: { players }, error: null }
+}
 
 // Dashboard: PlayerResult shape for frontend (matches Metrix API)
 export type DashboardPlayerResult = {
