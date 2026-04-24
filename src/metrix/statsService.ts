@@ -131,6 +131,10 @@ export type PlayerStatsResponse = {
     } | null;
     holes: { played: number; total: number; playedPct: number | null };
     obHoles: number;
+    /** Metrix pool starting hole (1-based). Used to order progress circles. */
+    startGroup: number | null;
+    /** `holeDiffs[i]` = score vs par for course hole `i + 1`, or null if not played yet. */
+    holeDiffs: (number | null)[];
 };
 
 export const isCompetitionParticipant = async (
@@ -165,6 +169,30 @@ export const getPlayerResult = async (
     if (error) return {data: null, error};
     return {data: data as MetrixPlayerResultRow | null, error: null};
 };
+
+function buildHoleDiffsFromPlayerResults(
+    results: HoleResult[] | null | undefined,
+    totalHoles: number
+): (number | null)[] {
+    const arr = results ?? []
+    const out: (number | null)[] = []
+    for (let i = 0; i < totalHoles; i++) {
+        const raw = arr[i] as HoleResult | HoleResult[] | null | undefined
+        if (raw == null || Array.isArray(raw)) {
+            out.push(null)
+            continue
+        }
+        const hole = raw as HoleResult
+        const result = String(hole.Result ?? '').trim()
+        if (result === '') {
+            out.push(null)
+            continue
+        }
+        const diff = hole.Diff
+        out.push(typeof diff === 'number' && Number.isFinite(diff) ? diff : null)
+    }
+    return out
+}
 
 export const getAllPlayerRankingFields = async (
     env: Env,
@@ -215,6 +243,8 @@ export const getMetrixPlayerStats = async (env: Env, userId: string, competition
         }
         : null;
 
+    const holeDiffs = buildHoleDiffsFromPlayerResults(selected.player_results, totalHoles)
+
     const response: PlayerStatsResponse = {
         competitionId,
         cachedAt: selected.updated_date,
@@ -231,6 +261,8 @@ export const getMetrixPlayerStats = async (env: Env, userId: string, competition
         scoreBreakdown,
         holes: {played: playedHoles, total: totalHoles, playedPct},
         obHoles,
+        startGroup: selected.start_group,
+        holeDiffs,
     };
 
     return {data: response, error: null};
