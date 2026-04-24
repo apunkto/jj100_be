@@ -392,13 +392,20 @@ export async function getPredictionLeaderboard(
     // Always use precomputed data
     const {data: precomputedScores, error: scoresError} = await supabase
         .from('prediction_scores')
-        .select('player_id, total_score, rank, updated_at')
+        .select('player_id, total_score, rank, player_own_score_points, best_overall_score_points, updated_at')
         .eq('metrix_competition_id', competitionId)
-        .order('total_score', {ascending: false})
 
     // Use precomputed data if available
     if (!scoresError && precomputedScores && precomputedScores.length > 0) {
-        const playerIds = precomputedScores.map((s) => s.player_id)
+        const sortedScores = [...precomputedScores].sort((a, b) => {
+            const ts = (b.total_score ?? 0) - (a.total_score ?? 0)
+            if (ts !== 0) return ts
+            const po = (b.player_own_score_points ?? 0) - (a.player_own_score_points ?? 0)
+            if (po !== 0) return po
+            return (b.best_overall_score_points ?? 0) - (a.best_overall_score_points ?? 0)
+        })
+
+        const playerIds = sortedScores.map((s) => s.player_id)
         const {data: players, error: playersError} = await supabase
             .from('player')
             .select('id, name')
@@ -415,17 +422,17 @@ export async function getPredictionLeaderboard(
             }
         }
 
-        // Build leaderboard entries from precomputed data
+        // Build leaderboard entries (order + rank from tie-break rules, not stale DB rank)
         const leaderboardEntries: Array<{
             player_name: string
             player_id: number
             score: number
             rank: number
-        }> = precomputedScores.map((s) => ({
+        }> = sortedScores.map((s, index) => ({
             player_name: playerMap.get(s.player_id) || 'Tundmatu mängija',
             player_id: s.player_id,
             score: s.total_score,
-            rank: s.rank || 0,
+            rank: index + 1,
         }))
 
         // Get top 10

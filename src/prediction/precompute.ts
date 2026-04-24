@@ -181,8 +181,14 @@ export async function precomputePredictionResults(
             })
         }
 
-        // 6. Sort by total score descending and assign ranks
-        scoredPredictions.sort((a, b) => b.total_score - a.total_score)
+        // 6. Sort by total score, then tie-break: own-score points, then best-overall points
+        scoredPredictions.sort((a, b) => {
+            if (b.total_score !== a.total_score) return b.total_score - a.total_score
+            if (b.player_own_score_points !== a.player_own_score_points) {
+                return b.player_own_score_points - a.player_own_score_points
+            }
+            return b.best_overall_score_points - a.best_overall_score_points
+        })
         const scoredWithRanks = scoredPredictions.map((sp, index) => ({
             ...sp,
             rank: index + 1,
