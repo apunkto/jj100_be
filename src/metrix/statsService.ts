@@ -135,6 +135,11 @@ export type PlayerStatsResponse = {
     startGroup: number | null;
     /** `holeDiffs[i]` = score vs par for course hole `i + 1`, or null if not played yet. */
     holeDiffs: (number | null)[];
+    /** Worst vs-par among scored holes; null if none. */
+    worstResult:
+        | null
+        | { kind: 'single'; holeNumber: number; strokes: number | null; diff: number }
+        | { kind: 'tied'; count: number; diff: number; strokesWhenUniform: number | null };
 };
 
 export const isCompetitionParticipant = async (
@@ -198,6 +203,44 @@ function cumulativeParPlayedSeries(ordered: (number | null)[]): { hole: number; 
         out.push({ hole: played, toPar: cum })
     }
     return out
+}
+
+function parseHoleStrokes(resultRaw: unknown): number | null {
+    const n = parseInt(String(resultRaw ?? '').trim(), 10)
+    return Number.isFinite(n) ? n : null
+}
+
+function computeWorstHoleResult(
+    results: HoleResult[] | null | undefined,
+    totalHoles: number,
+): PlayerStatsResponse['worstResult'] {
+    const arr = results ?? []
+    type Entry = { holeNumber: number; diff: number; strokes: number | null }
+    const entries: Entry[] = []
+    for (let i = 0; i < totalHoles; i++) {
+        const raw = arr[i] as HoleResult | HoleResult[] | null | undefined
+        if (raw == null || Array.isArray(raw)) continue
+        const hole = raw as HoleResult
+        if (String(hole.Result ?? '').trim() === '') continue
+        const diff = hole.Diff
+        if (typeof diff !== 'number' || !Number.isFinite(diff)) continue
+        const strokes = parseHoleStrokes(hole.Result)
+        entries.push({ holeNumber: i + 1, diff, strokes })
+    }
+    if (entries.length === 0) return null
+
+    const maxDiff = Math.max(...entries.map((e) => e.diff))
+    const tied = entries.filter((e) => e.diff === maxDiff)
+    if (tied.length === 1) {
+        const e = tied[0]!
+        return { kind: 'single', holeNumber: e.holeNumber, strokes: e.strokes, diff: e.diff }
+    }
+    const strokeValues = tied.map((e) => e.strokes)
+    const allHaveStrokes = strokeValues.every((s) => s != null)
+    const nums = strokeValues.filter((s): s is number => s != null)
+    const uniform =
+        allHaveStrokes && nums.length === tied.length && new Set(nums).size === 1 ? nums[0]! : null
+    return { kind: 'tied', count: tied.length, diff: maxDiff, strokesWhenUniform: uniform }
 }
 
 function buildHoleDiffsFromPlayerResults(
@@ -274,6 +317,7 @@ export const getMetrixPlayerStats = async (env: Env, userId: string, competition
         : null;
 
     const holeDiffs = buildHoleDiffsFromPlayerResults(selected.player_results, totalHoles)
+    const worstResult = computeWorstHoleResult(selected.player_results, totalHoles)
 
     const response: PlayerStatsResponse = {
         competitionId,
@@ -293,6 +337,7 @@ export const getMetrixPlayerStats = async (env: Env, userId: string, competition
         obHoles,
         startGroup: selected.start_group,
         holeDiffs,
+        worstResult,
     };
 
     return {data: response, error: null};
