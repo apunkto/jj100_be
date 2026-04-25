@@ -571,3 +571,5 @@ ALTER TABLE hole ADD COLUMN ctp_sponsor_url varchar(255);
 
 ALTER TABLE hole ADD COLUMN target_coordinates varchar(255);
 ALTER TABLE hole ADD COLUMN nav_from_previous text;
+
+ALTER TABLE hole ADD COLUMN nav_from_previous_distance numeric;
