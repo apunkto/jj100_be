@@ -12,6 +12,7 @@ const router = new Hono<{Bindings: Env; Variables: HonoVars}>()
 const billLookupSchema = z.object({
     iban: z.string().min(1, 'IBAN is required'),
     payerName: z.string().min(1, 'Payer name is required'),
+    paymentKey: z.string().min(1).optional(),
 })
 
 router.post('/lookup', async (c) => {
@@ -45,7 +46,7 @@ router.post('/lookup', async (c) => {
         )
     }
 
-    const lookup = matchTransaction(iban, payerName)
+    const lookup = matchTransaction(iban, payerName, parsed.data.paymentKey)
     if (lookup.status === 'none') {
         return c.json(
             {
@@ -56,12 +57,23 @@ router.post('/lookup', async (c) => {
             404,
         )
     }
+    if (lookup.status === 'invalid_selection') {
+        return c.json(
+            {
+                success: false,
+                code: 'bill_invalid_payment_selection',
+                error: 'Selected payment is no longer valid. Please choose one of the listed payments.',
+            },
+            400,
+        )
+    }
     if (lookup.status === 'ambiguous') {
         return c.json(
             {
                 success: false,
                 code: 'bill_multiple_payments',
-                error: 'More than one payment matches these details. Contact the organisers for an invoice.',
+                error: 'More than one payment matches these details. Please choose the payment description.',
+                data: {choices: lookup.choices},
             },
             409,
         )

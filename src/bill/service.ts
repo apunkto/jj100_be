@@ -24,11 +24,17 @@ export type BillData = {
 }
 
 type ParsedEntry = {
+    paymentKey: string
     iban: string
     instrId: string
     debtorName: string
     remittanceInfo: string
     amount: string
+}
+
+export type BillPaymentChoice = {
+    paymentKey: string
+    description: string
 }
 
 const INVISIBLE_CONTROL_REGEX = /[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g
@@ -48,12 +54,20 @@ export function normalizeIban(input: string): string {
 }
 
 /**
- * Payer name for lookup: strip invisible controls, NFKC, trim, remove all whitespace,
+ * Payer name for lookup: strip invisible controls, NFKC, trim, collapse whitespace,
  * then uppercase (et-EE for correct handling of i/õäöü).
  */
 export function normalizePayerName(input: string): string {
-    const collapsed = stripInvisibleControls(input).normalize('NFKC').trim().replace(/\s+/g, '')
+    const collapsed = stripInvisibleControls(input).normalize('NFKC').trim().replace(/\s+/g, ' ')
     return collapsed.toLocaleUpperCase('et-EE')
+}
+
+function nameSignatures(normalizedName: string): Set<string> {
+    const tokens = normalizedName.split(' ').filter(Boolean)
+    if (tokens.length === 0) return new Set()
+    const direct = tokens.join('')
+    const reversed = [...tokens].reverse().join('')
+    return new Set([direct, reversed])
 }
 
 let cachedEntries: ParsedEntry[] | null = null
@@ -76,7 +90,7 @@ function parseEntries(): ParsedEntry[] {
 
     const list = Array.isArray(rawEntries) ? rawEntries : rawEntries ? [rawEntries] : []
 
-    for (const ntry of list) {
+    for (const [idx, ntry] of list.entries()) {
         const amt = typeof ntry.Amt === 'object' ? String(ntry.Amt['#text']) : String(ntry.Amt ?? '')
         const txDtls = ntry.NtryDtls?.TxDtls
         if (!txDtls) continue
@@ -89,7 +103,9 @@ function parseEntries(): ParsedEntry[] {
 
         if (!normalizeIban(iban) || !normalizePayerName(debtorName)) continue
 
-        entries.push({iban, instrId, debtorName, remittanceInfo, amount: amt})
+        // Stable key used when user must choose between multiple matching payments.
+        const paymentKey = `${normalizeIban(iban)}|${normalizePayerName(debtorName)}|${instrId}|${amt}|${idx}`
+        entries.push({paymentKey, iban, instrId, debtorName, remittanceInfo, amount: amt})
     }
 
     cachedEntries = entries
@@ -98,17 +114,39 @@ function parseEntries(): ParsedEntry[] {
 
 export type BillLookupMatch =
     | {status: 'none'}
-    | {status: 'ambiguous'; count: number}
+    | {status: 'invalid_selection'}
+    | {status: 'ambiguous'; choices: BillPaymentChoice[]}
     | {status: 'ok'; tx: ParsedEntry}
 
 /** `iban` and `payerName` must already be normalized (see routes). */
-export function matchTransaction(iban: string, payerName: string): BillLookupMatch {
+export function matchTransaction(iban: string, payerName: string, selectedPaymentKey?: string): BillLookupMatch {
     const entries = parseEntries()
+    const inputSignatures = nameSignatures(payerName)
     const matches = entries.filter(
-        (e) => normalizeIban(e.iban) === iban && normalizePayerName(e.debtorName) === payerName,
+        (e) =>
+            normalizeIban(e.iban) === iban &&
+            (() => {
+                const entrySignatures = nameSignatures(normalizePayerName(e.debtorName))
+                for (const sig of inputSignatures) {
+                    if (entrySignatures.has(sig)) return true
+                }
+                return false
+            })(),
     )
     if (matches.length === 0) return {status: 'none'}
-    if (matches.length > 1) return {status: 'ambiguous', count: matches.length}
+    if (selectedPaymentKey) {
+        const selected = matches.find((m) => m.paymentKey === selectedPaymentKey)
+        return selected ? {status: 'ok', tx: selected} : {status: 'invalid_selection'}
+    }
+    if (matches.length > 1) {
+        return {
+            status: 'ambiguous',
+            choices: matches.map((m) => ({
+                paymentKey: m.paymentKey,
+                description: m.remittanceInfo || '(no payment description)',
+            })),
+        }
+    }
     return {status: 'ok', tx: matches[0]!}
 }
 
