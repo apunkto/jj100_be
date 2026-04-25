@@ -568,3 +568,6 @@ CREATE INDEX metrix_pace_of_play_pool_competition_idx
 ALTER TABLE hole ADD COLUMN ctp_sponsor varchar(255);
 ALTER TABLE hole ADD COLUMN ctp_sponsor_logo varchar(255);
 ALTER TABLE hole ADD COLUMN ctp_sponsor_url varchar(255);
+
+ALTER TABLE hole ADD COLUMN target_coordinates varchar(255);
+ALTER TABLE hole ADD COLUMN nav_from_previous text;
