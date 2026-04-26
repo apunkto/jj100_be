@@ -2,7 +2,6 @@ import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from math import radians, cos, sin, sqrt, atan2
-import zipfile
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 
@@ -15,21 +14,11 @@ def resolve_existing_path(candidates):
     raise FileNotFoundError(f"None of these files exist in {SCRIPT_DIR}: {candidates}")
 
 
-def load_kml_root_from_kmz(candidates):
+def load_kml_root(candidates):
     source_path = resolve_existing_path(candidates)
-    if source_path.suffix.lower() != '.kmz':
-        raise ValueError(f"Expected a .kmz file, got {source_path.name}")
-
-    with zipfile.ZipFile(source_path) as kmz:
-        kml_entries = [name for name in kmz.namelist() if name.lower().endswith('.kml')]
-        if not kml_entries:
-            raise ValueError(f"No .kml file found inside {source_path.name}")
-        chosen_entry = next(
-            (name for name in kml_entries if Path(name).name.lower() == 'doc.kml'),
-            kml_entries[0],
-        )
-        with kmz.open(chosen_entry) as kml_file:
-            return ET.parse(kml_file).getroot(), source_path.name, chosen_entry
+    if source_path.suffix.lower() != '.kml':
+        raise ValueError(f"Expected a .kml file, got {source_path.name}")
+    return ET.parse(source_path).getroot(), source_path.name
 
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -43,10 +32,9 @@ def haversine(lat1, lon1, lat2, lon2):
 METRIX_IDS = (4, 30)
 ns = {'kml': 'http://www.opengis.net/kml/2.2'}
 
-# --- Parse Korvid & tiialat KMZ for tii and korv coordinates ---
-root, coordinates_kmz_name, coordinates_kml_entry = load_kml_root_from_kmz([
-    'Korvid & tiialat.kmz',
-    'Korvid & Tiialad.kmz',
+# --- Parse Korvid & tiialat KML for tii and korv coordinates ---
+root, coordinates_kml_name = load_kml_root([
+    'Korvid & Tiialad.kml',
 ])
 
 tii_coords = {}
@@ -65,10 +53,10 @@ for placemark in root.findall('.//kml:Placemark', ns):
     elif desc_text == 'korv':
         korv_coords[name_text] = f"{lat}, {lon}"
 
-# --- Parse Navigatsioon.kmz for navigation paths ---
+# --- Parse Navigatsioon.kml for navigation paths ---
 # Placemarks named "X->Y" describe the path from tee X to basket Y.
 # We store the path under the destination hole number Y.
-root_nav, nav_kmz_name, nav_kml_entry = load_kml_root_from_kmz(['Navigatsioon.kmz'])
+root_nav, nav_kml_name = load_kml_root(['Navigatsioon.kml'])
 
 nav_paths = {}  # hole number (str) -> list of [lat, lon]
 nav_distances = {}  # hole number (str) -> rounded meters
@@ -95,10 +83,9 @@ for placemark in root_nav.findall('.//kml:Placemark', ns):
     )
     nav_distances[dest] = round(nav_total)
 
-# --- Parse Fairways KMZ for line lengths ---
-root_fw, fairway_kmz_name, fairway_kml_entry = load_kml_root_from_kmz([
-    'Fairways.kmz',
-    'Fairway.kmz',
+# --- Parse Fairways KML for line lengths ---
+root_fw, fairway_kml_name = load_kml_root([
+    'Fairway.kml',
 ])
 
 fairway_lengths = {}
@@ -176,9 +163,9 @@ lines.append(f"Holes missing target_coordinates: {missing_target or 'none'}")
 lines.append(f"Holes missing length: {missing_length or 'none'}")
 lines.append(f"Holes missing nav_from_previous: {missing_nav or 'none'}")
 lines.append(f"Nav distance rows found: {len(nav_distances)}")
-lines.append(f"Sources: coordinates={coordinates_kmz_name}:{coordinates_kml_entry}")
-lines.append(f"Sources: fairways={fairway_kmz_name}:{fairway_kml_entry}")
-lines.append(f"Sources: navigation={nav_kmz_name}:{nav_kml_entry}")
+lines.append(f"Sources: coordinates={coordinates_kml_name}")
+lines.append(f"Sources: fairways={fairway_kml_name}")
+lines.append(f"Sources: navigation={nav_kml_name}")
 
 text = "\n".join(lines) + "\n"
 out_path.write_text(text, encoding="utf-8")
