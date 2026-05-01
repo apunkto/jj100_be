@@ -124,6 +124,61 @@ async function patchCompetitionFlag(
 }
 
 router.use('/competition/:id', requireAdmin)
+
+/** Force Metrix sync for one competition (internal metrix_competition.id). Requires admin. */
+router.get('/competition/:id/run-metrix', async (c) => {
+    const competitionId = Number(c.req.param('id'));
+    if (!Number.isFinite(competitionId)) {
+        return c.json({ success: false, error: 'Invalid competition ID' }, 400);
+    }
+
+    const start = Date.now();
+    const supabase = getSupabaseClient(c.env);
+    const { data: row, error: fetchErr } = await supabase
+        .from('metrix_competition')
+        .select('id, metrix_competition_id')
+        .eq('id', competitionId)
+        .maybeSingle();
+
+    const duration = () => Date.now() - start;
+
+    if (fetchErr) {
+        console.error('[Metrix] Single sync: failed to load competition', fetchErr);
+        return c.json({ success: false, error: fetchErr.message, durationMs: duration() }, 500);
+    }
+    if (!row) {
+        return c.json({ success: false, error: 'Competition not found', durationMs: duration() }, 404);
+    }
+
+    try {
+        const syncResult = await updateHoleStatsFromMetrix(c.env, row.metrix_competition_id);
+        if (syncResult.success) {
+            await supabase
+                .from('metrix_competition')
+                .update({ last_synced_at: new Date().toISOString() })
+                .eq('id', row.id);
+        }
+        const result: MetrixSyncResult = {
+            metrix_competition_id: row.metrix_competition_id,
+            success: syncResult.success,
+            ...(!syncResult.success && syncResult.error
+                ? { error: syncResult.error instanceof Error ? syncResult.error.message : String(syncResult.error) }
+                : {}),
+        };
+        console.log('[Metrix] Single sync:', row.metrix_competition_id, syncResult.success);
+        return c.json({ success: true, result, durationMs: duration() });
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[Metrix] Single sync failed:', row.metrix_competition_id, err);
+        const failResult: MetrixSyncResult = {
+            metrix_competition_id: row.metrix_competition_id,
+            success: false,
+            error: message,
+        };
+        return c.json({ success: true, result: failResult, durationMs: duration() });
+    }
+});
+
 router.patch('/competition/:id/ctp', (c) => patchCompetitionFlag(c, 'ctp_enabled'))
 router.patch('/competition/:id/checkin', (c) => patchCompetitionFlag(c, 'checkin_enabled'))
 router.patch('/competition/:id/prediction', (c) => patchCompetitionFlag(c, 'prediction_enabled'))
