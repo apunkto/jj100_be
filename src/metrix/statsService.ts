@@ -542,7 +542,12 @@ export const getCompetitionStats = async (
         holeMap[h.number] = h.length ?? 0;
     }
 
-    let mostHolesLeft = 0
+    /**
+     * "Viimasel puulil" / holes left for the field: among non-DNF players still playing,
+     * use the player who has completed the most holes — i.e. minimum holes remaining (the lead card),
+     * not the maximum (slowest / abandoned partial cards). DNF rows are excluded entirely.
+     */
+    let minHolesLeftAmongActive: number | null = null
     let finishedPlayersCount = 0
     let totalThrows = 0
     let sumDiff = 0
@@ -564,14 +569,20 @@ export const getCompetitionStats = async (
         const played = results.filter(
             (h) => h != null && !Array.isArray(h) && (h.Diff != null && h.Diff !== undefined)
         ).length
-        const remaining = totalHoles - played
-        if (remaining > mostHolesLeft) mostHolesLeft = remaining
+        const remaining = Math.max(0, totalHoles - played)
+        if (remaining > 0) {
+            if (minHolesLeftAmongActive === null || remaining < minHolesLeftAmongActive) {
+                minHolesLeftAmongActive = remaining
+            }
+        }
 
         const allPlayed =
             holeCount > 0 &&
             results.every((h) => !Array.isArray(h) || (Array.isArray(h) && h.length !== 0))
         if (allPlayed) finishedPlayersCount++
     }
+
+    const mostHolesLeft = minHolesLeftAmongActive ?? 0
 
     const { entries: longestStreaks } = findLongestBirdieStreaks(nonDnfPlayers, totalHoles)
     const longestAces = findLongestAces(nonDnfPlayers, holeMap)
