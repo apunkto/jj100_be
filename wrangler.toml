@@ -40,4 +40,4 @@ enabled = true
 
 
 [triggers]
-crons = ["0 * * * *", "*/30 * * * *"]
+crons = ["*/5 * * * *"]

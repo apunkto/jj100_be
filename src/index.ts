@@ -90,8 +90,8 @@ export default {
         console.log(`Scheduled task started at ${new Date(event.scheduledTime).toISOString()}, cron: ${cronSchedule}`);
         
         switch (cronSchedule) {
-            case '0 * * * *':
-                // Run Metrix sync every hour
+            case '*/5 * * * *': {
+                // Metrix sync every 5 minutes
                 const metrixStart = Date.now();
                 const { error: metrixError, results: metrixResults } = await runMetrixSync(env);
                 if (metrixError) {
@@ -100,10 +100,8 @@ export default {
                     const metrixDuration = Date.now() - metrixStart;
                     console.log(`Metrix sync completed in ${metrixDuration}ms, synced ${metrixResults.length} competition(s)`);
                 }
-                break;
-                
-            case '*/30 * * * *':
-                // Run prediction precomputation every 5 minutes
+
+                // Prediction precompute every 5 minutes (same cron trigger)
                 const predictionStart = Date.now();
                 const { error: predictionError, results: predictionResults } = await runPredictionPrecompute(env);
                 if (predictionError) {
@@ -114,7 +112,8 @@ export default {
                     console.log(`Prediction precompute completed in ${predictionDuration}ms, processed ${successful}/${predictionResults.length} competition(s)`);
                 }
                 break;
-                
+            }
+
             default:
                 console.warn(`Unknown cron schedule: ${cronSchedule}`);
         }
