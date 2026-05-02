@@ -53,6 +53,11 @@ function getNextActiveInOrder(
     return null
 }
 
+/** First still-active player in `final_game_order` (array must be sorted by order). */
+function getFirstActiveInOrder(ordered: FinalGameParticipant[]): FinalGameParticipant | null {
+    return ordered.find((p) => p.last_result !== 'out') ?? null
+}
+
 export async function getPuttingGameState(
     env: Env,
     competitionId: number,
@@ -289,10 +294,13 @@ export async function recordPuttingResult(
                 }
             }
 
+            const firstActiveAfterRevert = getFirstActiveInOrder(participants)
+            if (!firstActiveAfterRevert) return { error: 'Unexpected state' }
+
             const { error: turnErr } = await supabase
                 .from('final_game_state')
                 .update({
-                    current_turn_final_game_participant_id: participants[0]!.id,
+                    current_turn_final_game_participant_id: firstActiveAfterRevert.id,
                     updated_at: now,
                 })
                 .eq('id', gameState.id)
@@ -395,10 +403,13 @@ export async function recordPuttingResult(
         }
     }
 
+    const firstActiveAfterNobodyMade = getFirstActiveInOrder(participants)
+    if (!firstActiveAfterNobodyMade) return { error: 'Unexpected state' }
+
     const { error: turnErr } = await supabase
         .from('final_game_state')
         .update({
-            current_turn_final_game_participant_id: participants[0]!.id,
+            current_turn_final_game_participant_id: firstActiveAfterNobodyMade.id,
             updated_at: now,
         })
         .eq('id', gameState.id)
