@@ -426,6 +426,9 @@ export const updateHoleStatsFromMetrix = async (
   const playerRows = players.map((p) => {
     const holes = p.PlayerResults ?? [];
     const userId = String(p.UserID);
+    const N = holes.length;
+    const startGroup = parseGroup(p.Group);
+    const startIdx = (startGroup != null && N > 0) ? ((startGroup - 1 + N) % N) : 0;
     let waterHolesWithPen = 0;
     let eagles = 0,
       birdies = 0,
@@ -438,7 +441,7 @@ export const updateHoleStatsFromMetrix = async (
       obHoles = 0;
     let lastPlayedHoleIndex: number | null = null;
 
-    for (let i = 0; i < holes.length; i++) {
+    for (let i = 0; i < N; i++) {
       const holeNumber = i + 1;
       const hole = holes[i];
       const diff = hole?.Diff;
@@ -447,7 +450,10 @@ export const updateHoleStatsFromMetrix = async (
 
       if (result !== "") {
         playedHoles++;
-        lastPlayedHoleIndex = i;
+        const offset = ((i - startIdx + N) % N);
+        if (lastPlayedHoleIndex === null || offset > lastPlayedHoleIndex) {
+          lastPlayedHoleIndex = offset;
+        }
       }
       if (pen) obHoles++;
       if (typeof diff === "number") {
@@ -475,7 +481,7 @@ export const updateHoleStatsFromMetrix = async (
       diff: p.Diff ?? null,
       sum: p.Sum ?? null,
       dnf: Boolean(p.Dnf),
-      start_group: parseGroup(p.Group),
+      start_group: startGroup,
       player_results: p.PlayerResults ?? null,
       water_holes_with_pen: waterHolesWithPen,
       birdie_or_better: birdieOrBetter,
@@ -656,26 +662,30 @@ export const getCurrentHole = async (
   if (error) return { data: null, error };
   if (!row) return { data: 1, error: null };
 
-  const totalHoles = row.total_holes ?? 0;
+  const N = row.total_holes ?? 0;
   const group = row.start_group;
-  const groupHole =
-    group != null && Number.isFinite(group) && group > 0 ? group : 1;
-
-  if (totalHoles <= 0) {
-    return { data: groupHole, error: null };
-  }
-  
-
-  const lastIdx = row.last_played_hole_index;
-  if (lastIdx == null) {
-    return { data: groupHole, error: null };
+  let startHole: number;
+  if (group != null && Number.isFinite(group) && group > 0 && N > 0) {
+    startHole = ((group - 1 + N) % N) + 1;
+  } else {
+    startHole = group != null && Number.isFinite(group) && group > 0 ? group : 1;
   }
 
-  if (lastIdx + 1 >= totalHoles) {
-    return { data: 1, error: null };
+  if (N <= 0) {
+    return { data: startHole, error: null };
   }
 
-  return { data: lastIdx + 2, error: null };
+  const offset = row.last_played_hole_index;
+  if (offset == null) {
+    return { data: startHole, error: null };
+  }
+
+  const nextOffset = offset + 1;
+  if (nextOffset >= N) {
+    return { data: startHole, error: null };
+  }
+
+  return { data: ((startHole - 1 + nextOffset) % N) + 1, error: null };
 };
 
 function hasPenalty(hole: HoleResult | undefined): boolean {

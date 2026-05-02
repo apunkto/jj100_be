@@ -47,32 +47,38 @@ export function distStartToCurrentHole(
   return N - s + h;
 }
 
-function clampStartGroup(start: number | null, N: number): number | null {
-  if (start == null || !Number.isFinite(start)) return null;
-  if (N <= 0) return null;
-  if (start < 1 || start > N) return null;
-  return start;
+/**
+ * Map Metrix pool / group id onto 1..N (same ring as {@link distStartToCurrentHole}).
+ * Large pool numbers (e.g. 100) wrap onto the course layout (e.g. 24 holes).
+ */
+export function normalizePoolStartOnCourse(start: number | null, N: number): number | null {
+  if (start == null || !Number.isFinite(start) || N <= 0) return null;
+  const si = Math.floor(Number(start));
+  if (si < 1) return null;
+  return ((si - 1 + N) % N) + 1;
 }
 
-/** Next hole to play for one player; null = finished or unusable row. */
+/**
+ * Next hole to play for one player; null = finished or unusable row.
+ * `last_played_hole_index` is a **playing-order offset** (0 = first hole from start group).
+ */
 export function currentHoleForPlayer(p: PacePlayerRowInput): number | null {
   const N = p.total_holes;
   if (N <= 0) return null;
   if (p.played_holes >= N) return null;
 
-  const S = clampStartGroup(p.start_group, N);
+  const S = normalizePoolStartOnCourse(p.start_group, N);
   if (S == null) return null;
 
   if (p.last_played_hole_index == null) {
     return S;
   }
 
-  const lastIdx = p.last_played_hole_index;
-  const lastCompleted = lastIdx + 1;
-  if (lastCompleted >= N) {
-    return 1;
+  const nextOffset = p.last_played_hole_index + 1;
+  if (nextOffset >= N) {
+    return null;
   }
-  return lastCompleted + 1;
+  return ((S - 1 + nextOffset) % N) + 1;
 }
 
 function pickFurthestPlayer(rows: PacePlayerRowInput[]): PacePlayerRowInput {
@@ -101,7 +107,7 @@ export function derivePoolStates(rows: PacePlayerRowInput[]): PoolDerivedState[]
     const N = furthest.total_holes;
     if (N <= 0) continue;
 
-    const startGroup = clampStartGroup(poolNumber, N);
+    const startGroup = normalizePoolStartOnCourse(poolNumber, N);
     if (startGroup == null) continue;
 
     const currentHole = currentHoleForPlayer(furthest);
@@ -176,13 +182,14 @@ export function computePaceSnapshotRows(
 
   for (const B of pools) {
     const Hb = B.currentHole;
-    const distB = distStartToCurrentHole(B.startGroup, Hb, N);
+    // Use raw Metrix pool id + global N so ordering matches distStartToCurrentHole(S, H, N).
+    const distB = distStartToCurrentHole(B.poolNumber, Hb, N);
 
     const sameHoleList = poolsByCurrent.get(Hb) ?? [];
     let sameWaiting = 0;
     for (const P of sameHoleList) {
       if (P.poolNumber === B.poolNumber) continue;
-      const distP = distStartToCurrentHole(P.startGroup, Hb, N);
+      const distP = distStartToCurrentHole(P.poolNumber, Hb, N);
       if (distP > distB) sameWaiting++;
     }
 
@@ -287,6 +294,61 @@ export function runPaceOfPlaySelfChecks(): void {
   const empty = countEmptyHolesAhead(15, N, by);
   if (empty !== 3) {
     throw new Error(`pace self-check: empty ahead expected 3 got ${empty}`);
+  }
+
+  const n24 = 24;
+  if (normalizePoolStartOnCourse(100, n24) !== 4) {
+    throw new Error("pace self-check: pool 100 should map to start 4 on 24-hole layout");
+  }
+  if (distStartToCurrentHole(100, 24, n24) !== 20) {
+    throw new Error("pace self-check: dist pool 100 at hole 24");
+  }
+
+  const finished: PacePlayerRowInput = {
+    start_group: 100,
+    total_holes: n24,
+    played_holes: n24,
+    last_played_hole_index: 23,
+    dnf: false,
+    user_id: "x",
+    name: null,
+  };
+  if (currentHoleForPlayer(finished) !== null) {
+    throw new Error("pace self-check: completed scorecard should not show as active");
+  }
+
+  // Group 93 on 100-hole course, played 27 holes (93..100, 1..19).
+  // last_played_hole_index is a playing-order offset: (18 - 92 + 100)%100 = 26
+  const wrapping: PacePlayerRowInput = {
+    start_group: 93,
+    total_holes: 100,
+    played_holes: 27,
+    last_played_hole_index: 26,
+    dnf: false,
+    user_id: "y",
+    name: null,
+  };
+  const nextHole = currentHoleForPlayer(wrapping);
+  // Start normalized to 93. Offset 27 → array index = (93-1+27)%100 = 19, hole 20.
+  if (nextHole !== 20) {
+    throw new Error(`pace self-check: group 93 next hole expected 20 got ${nextHole}`);
+  }
+
+  // Group 13 on 100-hole course, played 29 holes (13..41).
+  // last_played_hole_index offset = 28 (index 40 - index 12 = 28)
+  const linear: PacePlayerRowInput = {
+    start_group: 13,
+    total_holes: 100,
+    played_holes: 29,
+    last_played_hole_index: 28,
+    dnf: false,
+    user_id: "z",
+    name: null,
+  };
+  const nextLinear = currentHoleForPlayer(linear);
+  // Offset 29 → array index = (13-1+29)%100 = 41, hole 42.
+  if (nextLinear !== 42) {
+    throw new Error(`pace self-check: group 13 next hole expected 42 got ${nextLinear}`);
   }
 }
 
