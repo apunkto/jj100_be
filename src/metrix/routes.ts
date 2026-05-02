@@ -67,7 +67,7 @@ router.get('/competition/:id/stats', async (c) => {
 
     const { data, error } = await getCompetitionStats(c.env, competitionId)
     if (error) return c.json({ success: false, error }, 500)
-    return c.json({ success: true, data: data ?? { playerCount: 0, mostHolesLeft: 0, finishedPlayersCount: 0, totalThrows: 0, averageDiff: 0, lakeOBCount: 0, lakePlayersCount: 0, totalHoles: 0, longestStreaks: [], longestAces: [] } })
+    return c.json({ success: true, data: data ?? { playerCount: 0, totalPlayersCount: 0, mostHolesLeft: 0, finishedPlayersCount: 0, totalThrows: 0, averageDiff: 0, lakeOBCount: 0, lakePlayersCount: 0, totalHoles: 0, longestStreaks: [], longestAces: [] } })
 })
 
 router.get('/player/stats', async (c) => {

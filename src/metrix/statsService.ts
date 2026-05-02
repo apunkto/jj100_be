@@ -504,7 +504,10 @@ export const getMyDivisionResult = async (
 };
 
 export type CompetitionStatsResponse = {
+    /** Non-DNF only — used for "Lõpetanud … / …st". */
     playerCount: number;
+    /** All synced players (includes DNF) — use for lake % denominator. */
+    totalPlayersCount: number;
     mostHolesLeft: number;
     finishedPlayersCount: number;
     totalThrows: number;
@@ -579,14 +582,15 @@ export const getCompetitionStats = async (
     const { entries: longestStreaks } = findLongestBirdieStreaks(nonDnfPlayers, totalHoles)
     const longestAces = findLongestAces(nonDnfPlayers, holeMap)
 
-    // Count players who threw OB in at least one water hole
-    const lakePlayersCount = players.filter(p => !p.dnf && (p.water_holes_with_pen ?? 0) > 0).length;
+    // Lake: include DNF — they still threw OB before/withdrawing
+    const lakePlayersCount = players.filter((p) => (p.water_holes_with_pen ?? 0) > 0).length;
     const averageDiff = players.length > 0 ? sumDiff / players.length : 0;
 
     return {
         data: {
             /** Denominator for "Lõpetanud … mängijat Xst" — non-DNF only; DNF are not "finished" here. */
             playerCount: nonDnfPlayers.length,
+            totalPlayersCount: players.length,
             mostHolesLeft,
             finishedPlayersCount,
             totalThrows,
