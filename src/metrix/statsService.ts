@@ -557,7 +557,6 @@ export const getCompetitionStats = async (
         sumDiff += p.diff ?? 0
 
         if (p.dnf) {
-            finishedPlayersCount++
             continue
         }
 
@@ -586,7 +585,8 @@ export const getCompetitionStats = async (
 
     return {
         data: {
-            playerCount: players.length,
+            /** Denominator for "Lõpetanud … mängijat Xst" — non-DNF only; DNF are not "finished" here. */
+            playerCount: nonDnfPlayers.length,
             mostHolesLeft,
             finishedPlayersCount,
             totalThrows,
