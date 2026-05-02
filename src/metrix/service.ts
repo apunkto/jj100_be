@@ -133,9 +133,24 @@ export interface PlayerResult {
   Diff: number;
   ClassName: string;
   Sum: number;
-  Dnf?: boolean | null;
+  /** Some Metrix payloads use boolean `Dnf`; others use uppercase `DNF` with string `"1"` / `"0"`. */
+  Dnf?: boolean | string | number | null;
+  DNF?: boolean | string | number | null;
   PlayerResults?: HoleResult[];
   Group: string;
+}
+
+/** Metrix `result` API often sends `DNF: "1"` instead of `Dnf: true` (case + type differ). */
+function metrixApiPlayerIsDnf(p: Pick<PlayerResult, "Dnf" | "DNF">): boolean {
+  const raw = p.DNF ?? p.Dnf;
+  if (raw === true || raw === 1) return true;
+  if (raw === false || raw === 0) return false;
+  if (raw == null) return false;
+  if (typeof raw === "string") {
+    const s = raw.trim().toLowerCase();
+    return s === "1" || s === "true" || s === "yes";
+  }
+  return Boolean(raw);
 }
 
 export interface CompetitionElement {
@@ -480,7 +495,7 @@ export const updateHoleStatsFromMetrix = async (
       order_number: null,
       diff: p.Diff ?? null,
       sum: p.Sum ?? null,
-      dnf: Boolean(p.Dnf),
+      dnf: metrixApiPlayerIsDnf(p),
       start_group: startGroup,
       player_results: p.PlayerResults ?? null,
       water_holes_with_pen: waterHolesWithPen,
