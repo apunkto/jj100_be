@@ -19,8 +19,9 @@ import type {Env} from './shared/types'
 import {DrawDashboardDO} from './lottery/drawDashboardDO'
 import {FinalGameDrawDO} from './lottery/finalGameDrawDO'
 import {FinalGamePuttingDO} from './lottery/finalGamePuttingDO'
+import {LedScreenControlDO} from './admin/ledScreenDO'
 
-export {DrawDashboardDO, FinalGameDrawDO, FinalGamePuttingDO}
+export {DrawDashboardDO, FinalGameDrawDO, FinalGamePuttingDO, LedScreenControlDO}
 
 const PUBLIC_PATHS = [
     /^\/auth\/pre-login$/,

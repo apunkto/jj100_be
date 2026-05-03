@@ -76,3 +76,13 @@ export const authRegisterSchema = z.object({
     email: z.string().email().transform((s) => s.trim().toLowerCase()),
     metrixUserId: z.number().int().positive(),
 })
+
+/** LED wall remote control */
+export const ledScreenSelectSchema = z.object({
+    board: z.enum(['main', 'leaderboard', 'draw', 'finalDraw', 'finalPutting']),
+    leaderboardDivision: z
+        .union([z.string(), z.null()])
+        .optional()
+        .transform((v) => (v === undefined ? undefined : v === null || v === '' ? null : String(v).trim() || null)),
+    leaderboardPanel: z.enum(['division', 'prediction']).optional(),
+})

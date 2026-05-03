@@ -10,4 +10,5 @@ export type Env = {
     FINAL_GAME_STATE: KVNamespace
     FINAL_GAME_DRAW_DO: DurableObjectNamespace
     FINAL_GAME_PUTTING_DO: DurableObjectNamespace
+    LED_SCREEN_CONTROL_DO: DurableObjectNamespace
 }

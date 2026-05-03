@@ -8,9 +8,12 @@ import {getSupabaseClient} from '../shared/supabase'
 import {requireAdmin} from '../middleware/admin'
 import {runPredictionPrecompute} from '../prediction/precompute'
 import {adminDidRainSchema, adminEnabledSchema, adminStatusSchema, parseJsonBody} from '../shared/validation'
+import ledScreenRoutes from './ledScreenRoutes'
 
 type HonoVars = { user: PlayerIdentity }
 const router = new Hono<{ Bindings: Env; Variables: HonoVars }>()
+
+router.route('/led-screen', ledScreenRoutes)
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 

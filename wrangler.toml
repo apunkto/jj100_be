@@ -26,9 +26,17 @@ class_name = "FinalGameDrawDO"
 name = "FINAL_GAME_PUTTING_DO"
 class_name = "FinalGamePuttingDO"
 
+[[durable_objects.bindings]]
+name = "LED_SCREEN_CONTROL_DO"
+class_name = "LedScreenControlDO"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["DrawDashboardDO", "FinalGameDrawDO", "FinalGamePuttingDO"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["LedScreenControlDO"]
 
 [[rules]]
 type = "Text"
