@@ -60,7 +60,7 @@ router.get("/participations/leaders", async (c) => {
     const cache = await caches.open("leaders-cache")
 
     // stable key, not tied to incoming headers
-    const cacheKey = new Request("https://cache.local/leadersV1", {method: "GET"})
+    const cacheKey = new Request("https://cache.local/leadersV2", {method: "GET"})
 
     const hit = await cache.match(cacheKey)
     console.log("Cache lookup:", hit ? "HIT" : "MISS")
